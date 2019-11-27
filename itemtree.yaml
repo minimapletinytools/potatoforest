@@ -1,0 +1,42 @@
+- item:
+  name: log_1
+  display: pine log
+  desc: Your basic log made of pine... Cut from a pine tree
+  type:
+    - log
+  tags:
+    - raw material
+
+- item:
+  name: dirt_1
+  display: dirt
+  desc: basic dirt
+  tags:
+    - raw material
+
+- item:
+  name: water
+  display: water
+  desc: H20
+
+- item:
+  name: axe_1
+  display: wood axe
+  desc: lol
+  type:
+    - axe
+
+- recipe:
+  inputs:
+    - - pine tree
+      - <axe>
+      - 5x action
+  outputs:
+    - 4-5x log_1
+
+- recipe:
+  inputs:
+    - - 3x water
+      - dirt
+  outputs:
+    - brick
