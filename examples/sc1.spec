@@ -1,6 +1,6 @@
 # Example spec for SC1 Zerg
-# some simplifications made such as larva and egg stages omitted
-# includes meta recipes and items for solving economy
+# some simplifications made such as larva and egg stages being omitted
+# includes meta recipes and items to simulate economy (in absence of opponent)
 
 STARTING
 4 drones

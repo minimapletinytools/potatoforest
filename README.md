@@ -1,19 +1,18 @@
-# Potato Tech Tree Builder
+This is a WIP. Spec is mostly done but will likely be refined. 
 
+# Potato Forest Tech Tree
 Potato Tech Tree is a flexible and simple game design tool for generating quantified tech trees. It is intended for both players and designers to better understand their game's progress tree. This tool has 3 components:
 
-- Definition Parser
+- Markup Language
 - Visualizer
 - Solver
 
-## Definition Parser
-
+## Markup Language
 A Potato Tech Tree definition is built from items and recipes. Items represent quantifiable things and recipes represent operations for creating items. Items are intended to represent many things. For example, they could represent a piece of research enabling new actions or be a logical intermediary of a more complex recipe.
 
 Potato Tech Tree Builder uses a simplified human writeable file format that is documented here.
 
 ### Expressions
-
 Expressions are ways to refer to quantified items. Item expressions are simply a quantity followed by the unique id of the item. For example `52 cards`. If no quantity is specified, it defaults to 1
 
 A list of expressions is simply a list of expressions separate by a new line, for example:
@@ -30,7 +29,6 @@ king
 In a future version, expressions will be more powerful (see future section below).
 
 ### Recipes
-
 Recipes are defined with the following fields
 
 ```
@@ -53,7 +51,6 @@ exclusive tablesaw
 `OUTPUTS` is a list that designates the output of the recipe
 
 ### Items
-
 Since some recipes might output multiple items. It's necessary to define items separately. Each item is defined with the following fields:
 
 ```
@@ -85,7 +82,6 @@ QUANTITY
 This is syntactic sugar for a recipe that outputs the designated quantity of the defined item. If the quantity field is taken to be 1 by default.
 
 ### Starting Items
-
 Items available at start are specified as follows
 
 ```
@@ -94,7 +90,6 @@ STARTING
 ```
 
 ### Time
-
 The only built-in item is `time` which represents in-game elapsed time. Time is like an item with infinite starting quantity however it is treated uniquely by the system in other ways.
 
 Time can not be listed in an `OUTPUT` field.
@@ -128,12 +123,9 @@ The Potato Solver generates heuristics of the following forms:
 1. What is the "best" way for me to produce item X
   - where "best" means least total usage of a set of resources which may include time
 
-<TODO more heuristics, maybe generalized solvers + solver interface>
-
 ## Examples
+[Starcraft 1 Zerg Tech Tree](examples/sc1.spec)
 <TODO Merge Dragons D:>
-<TODO Starcraft :D>
-
 <TODO eventually, crowdsource item trees for many different games>
 
 ## FUTURE
@@ -145,7 +137,6 @@ Items can be grouped with tags and these tags can be referred to in recipes. For
 
 
 ### Variable Expressions
-
 Recipes can use variables to help encode multiple recipes. Variables are defined in between two % signs and matched through the recipe. Note that this requires similar materials to have the same name prefix so that only those items are matched. For example
 
 ```
@@ -157,27 +148,28 @@ OUTPUTS
 hatchet%a%%b%
 ```
 
-### Formulaic Expressions
+### Random Output Expressions
+For example `4-6 rocks` as an output would randomly create 4, 5 or 6 (uniformly distributed) rocks. Perhaps a more complicated syntax for non-uniform or conditional distributions might be appropriate.
 
+
+### Formulaic Expressions
 Expressions should be able to access existing properties and use them in formulas. This would allow for things like upgrades with exponentially increasing cost.
 
 ### Expression Macros
-
 include macros for quantified items for examples
 
 `1 s = 1000 ms`
 
 This is distinct from creating a new items because they are not shown by the visualizer
 
+### Solver Interface
+The first version only contains a basic solver using A* algorithm. Instead, there should be a solver interface allowing other solvers to be plugged in as appropriate.
 
 # TODO
-
 Item flags:
-
 - hidden items: e.g. research_token type stuff that shouldn't be displayed by visualizer
-  -prob needs restrictions on inputs/outputs so that visualizer doesn't break.
-- exclusive groups: e.g. exclusize_1 exclusive_2...
+  - prob needs restrictions on inputs/outputs so that visualizer doesn't break.
+- exclusive groups: e.g. exclusive_1 exclusive_2...
 - allow or modifier inside of REQUIRE/INPUT recipes (instead of specifying multiple recipes)
-- zerg larva problem: some units are locked per instance
-  - with variable expressions, you can make hatchery_%x% and larva_%x% which solves this problem
-    - this really messes up the visualizer though
+- find a way to fix the zerg larva problem: some units are locked per instance
+  - with variable expressions, you can make hatchery_%x% and larva_%x% which does solve this problem but really messed up the visualizer
