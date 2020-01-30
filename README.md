@@ -1,4 +1,4 @@
-This is a WIP. Spec is mostly done but will likely be refined. 
+This is a WIP. Spec is mostly done but will likely be refined.
 
 # Potato Forest Tech Tree
 Potato Tech Tree is a flexible and simple game design tool for generating quantified tech trees. It is intended for both players and designers to better understand their game's progress tree. This tool has 3 components:
@@ -26,7 +26,7 @@ king
 8 pawns
 ```
 
-In a future version, expressions will be more powerful (see future section below).
+This document also outlines a more powerful language for expressions to be implemented in a future version (see future section below).
 
 ### Recipes
 Recipes are defined with the following fields
@@ -41,17 +41,24 @@ OUTPUTS
 <list of expressions>
 ```
 
-`REQUIRES` designate items that are required but not consumed by the recipe. For example, "metalurgy" might be a requirement for the "iron bar" recipe. If an item is exclusively required by the recipe (so that it can't be used in another recipe as either an input or requirement at the same time) it can prefixed with the `exclusive` keyword, for example:
-
-```
-exclusive tablesaw
-```
-
 `INPUTS` is a list that designates the input requirements of the recipe
+
 `OUTPUTS` is a list that designates the output of the recipe
 
+`REQUIRES` designate items that are required but not consumed by the recipe. For example, "metallurgy" might be a requirement for the "iron bar" recipe. If an item is exclusively required by the recipe (so that it can't be used in another recipe as either an input or requirement at the same time) it can prefixed with the `exclusive` keyword, for example:
+
+```
+REQUIRES
+exclusive 2 monitors
+exclusive person
+INPUTS
+999999999 time
+OUTPUTS
+web_application
+```
+
 ### Items
-Since some recipes might output multiple items. It's necessary to define items separately. Each item is defined with the following fields:
+It's necessary to define all items used by recipes. Each item is defined with the following fields:
 
 ```
 ITEM <unique id>
@@ -81,6 +88,17 @@ QUANTITY
 
 This is syntactic sugar for a recipe that outputs the designated quantity of the defined item. If the quantity field is taken to be 1 by default.
 
+Finally, item definitions allow for the following optional graph generator directives:
+
+```
+TIER <0-99>
+ICON <thumbnail.png>
+FULL <image.png>
+PHANTOM <omit/pass/false>
+```
+
+These are described in detail in the graph generation section.
+
 ### Starting Items
 Items available at start are specified as follows
 
@@ -90,32 +108,44 @@ STARTING
 ```
 
 ### Time
-The only built-in item is `time` which represents in-game elapsed time. Time is like an item with infinite starting quantity however it is treated uniquely by the system in other ways.
+The only built-in item is `time` which represents in-game elapsed time. Time is like an item with infinite starting quantity. It is treated uniquely by the system in the following ways:
 
-Time can not be listed in an `OUTPUT` field.
+1. Time can not be listed in an `OUTPUT` field.
 
-Time can not be flagged as exclusive. Instead, if a set of recipes can not be executed at the same time, they should all require a unique token that is included as a starting item. For example:
+2. Time can not be flagged as exclusive. Instead, if a set of recipes can not be executed at the same time, they should all require a unique token that is included as a starting item. For example:
 
-```
-ITEM research_token
-LIMIT 1
-...
+  ```
+  ITEM research_token
+  LIMIT 1
+  ...
 
-STARTING
-research_token
-...
+  STARTING
+  research_token
+  ...
 
-REQUIRES
-exclusive research_token
-1000 time
-```
+  REQUIRES
+  exclusive research_token
+  1000 time
+  ```
 
-In this case, a single starting `research_token` means only 1 recipe requiring `research token` can be executed at once.
+  In this case, a single starting `research_token` means only 1 recipe requiring `research token` can be executed at once.
 
-By putting time in the `INPUT` field means that no other recipe requiring or using time can be executed at the same time. It is like having a global `token` item that is included as an exclusive requirement for every recipe.
+3. <TODO DELETE THIS AND DISALLOW TIME IN INPUT FIELD???> By putting time in the `INPUT` field means that no other recipe requiring or using time can be executed at the same time. It is like having a global `token` item that is included as an exclusive requirement for every recipe.
 
 ## Graph Generator
 The graph generator generates a web-based graph visual of the defined item tree indicating which items are needed for which items. Hints can be added to the definition file to help structure the visual better.
+
+### Icons and Images
+Definitions include directives for the graph generator. Icons and full images for an item can be specified with the optional `ICON` and `FULL` image fields.
+
+### Tier
+The graph generator attempts to render items in rows where each row is "tier". By default, starting items that are not outputs of some recipe and time are tier `0` items and a tier `n` item is made from only tier `m` items where `m < n` where `n` is minimal. The `TIER` field can force items to be in a different tier. Doing so will force all items in tiers above it to be higher. All items in tiers below it will be forced into lower tiers. In this case, a tier `n` item is made from only tier `m` items where `m < n` OR `m = n` if there is a tier `m+1` item that depends on it. Manually set tiers must not break this invariant. If there are multiple recipes that define different tiers for an item, the minimum is used.
+
+<TODO PHANTOM types, probably needs restrictions>
+If `PHANTOM` is set to `omit` or `pass`, the item will not show up in the renderer. Recipes that use phantom items will simply omit all connections to items sets to `omit` or inherit its recipe ingredients if it is set to `pass`.
+
+### Total Requirements
+<TODO on hover, show total items required using simple solver or something>
 
 ## Potato Solver
 The Potato Solver generates heuristics of the following forms:
@@ -126,15 +156,17 @@ The Potato Solver generates heuristics of the following forms:
 ## Examples
 [Starcraft 1 Zerg Tech Tree](examples/sc1.spec)
 <TODO Merge Dragons D:>
-<TODO eventually, crowdsource item trees for many different games>
+<TODO call for contributors>
 
 ## FUTURE
 
 ### Tags (delete)
 Items can be grouped with tags and these tags can be referred to in recipes. For example, there may be many types of wood all tagged "wood", and any wood tagged item can be used in a recipe calling for wood
 <TODO quantity to tags?>
-<TODO is it better just to have intermediate recipes instead of tags? e.g. oak -> wood, pine -> wood, cedar -> wood, wood -> coal, probably yeah?>
+<TODO is it better just to have intermediate recipes instead of tags? e.g. oak -> wood, pine -> wood, cedar -> wood, wood -> coal, probably yeah? Note that we need better render directives in this case as you don't want to render every type of wood>
 
+### More Render Directives
+<TODO>
 
 ### Variable Expressions
 Recipes can use variables to help encode multiple recipes. Variables are defined in between two % signs and matched through the recipe. Note that this requires similar materials to have the same name prefix so that only those items are matched. For example
@@ -150,7 +182,6 @@ hatchet%a%%b%
 
 ### Random Output Expressions
 For example `4-6 rocks` as an output would randomly create 4, 5 or 6 (uniformly distributed) rocks. Perhaps a more complicated syntax for non-uniform or conditional distributions might be appropriate.
-
 
 ### Formulaic Expressions
 Expressions should be able to access existing properties and use them in formulas. This would allow for things like upgrades with exponentially increasing cost.
@@ -170,6 +201,7 @@ Item flags:
 - hidden items: e.g. research_token type stuff that shouldn't be displayed by visualizer
   - prob needs restrictions on inputs/outputs so that visualizer doesn't break.
 - exclusive groups: e.g. exclusive_1 exclusive_2...
+  - <TODO explain how this works?>
 - allow or modifier inside of REQUIRE/INPUT recipes (instead of specifying multiple recipes)
 - find a way to fix the zerg larva problem: some units are locked per instance
-  - with variable expressions, you can make hatchery_%x% and larva_%x% which does solve this problem but really messed up the visualizer
+  - with variable expressions, you can make hatchery_%x% and larva_%x% which does solve this problem but really messes up the visualizer
