@@ -141,6 +141,24 @@ Definitions include directives for the graph generator. Icons and full images fo
 ### Tier
 The graph generator attempts to render items in rows where each row is "tier". By default, starting items that are not outputs of some recipe and time are tier `0` items and a tier `n` item is made from only tier `m` items where `m < n` where `n` is minimal. The `TIER` field can force items to be in a different tier. Doing so will force all items in tiers above it to be higher. All items in tiers below it will be forced into lower tiers. In this case, a tier `n` item is made from only tier `m` items where `m < n` OR `m = n` if there is a tier `m+1` item that depends on it. Manually set tiers must not break this invariant. If there are multiple recipes that define different tiers for an item, the minimum is used.
 
+For example, by default, we have:
+
+```
+items: A -> B -> C -> D -> E
+        \_> B'
+tier:  1    2    3    4    5  
+```
+Forcing `C` to tier 2 pushes `B` to tier 1, however `B'` stays in tier 2 since it does not have a tier 2 item that depends on it
+
+```
+items: A -> B -> C -> D -> E
+        \______> B'
+tier:  1    1    2    3    4  
+```
+
+When rendered, each tier is rendered at a different vertical level denoted by a different color. If there are dependencies within the same tier, they will be offset into visual subtiers. 
+
+
 <TODO PHANTOM types, probably needs restrictions>
 If `PHANTOM` is set to `omit` or `pass`, the item will not show up in the renderer. Recipes that use phantom items will simply omit all connections to items sets to `omit` or inherit its recipe ingredients if it is set to `pass`.
 
