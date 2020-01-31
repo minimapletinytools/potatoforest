@@ -1,6 +1,6 @@
 module Main where
-
-import Lib
+import           Potato.Forest.Types
+import           Relude
 
 main :: IO ()
-main = someFunc
+main = undefined

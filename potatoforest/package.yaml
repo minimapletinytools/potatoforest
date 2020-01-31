@@ -61,11 +61,14 @@ default-extensions:
 - TypeFamilies
 - TypeFamilyDependencies
 - TypeOperators
+- NoImplicitPrelude
 
 dependencies:
 - base >= 4.7 && < 5
+- text
+- containers
 - megaparsec
-- containers-unicode-symbols
+- relude
 
 library:
   source-dirs: src
