@@ -4,6 +4,9 @@ module Potato.Forest.Types (
   , RecipeId(..)
   , Item(..)
   , Recipe(..)
+  , Inventory
+  , ItemSet
+  , RecipeSet
 ) where
 
 import           Relude
@@ -27,8 +30,8 @@ data ItemExp = ItemExp BaseItemExp | ExclusiveItemExp BaseItemExp
 -}
 
 
-newtype ItemId = ItemId T.Text deriving (Eq, Ord)
-newtype RecipeId = RecipeId T.Text deriving (Eq, Ord)
+newtype ItemId = ItemId T.Text deriving (Eq, Ord, Show)
+newtype RecipeId = RecipeId T.Text deriving (Eq, Ord, Show)
 
 -- | internal types
 data Item = Item {
@@ -37,7 +40,7 @@ data Item = Item {
   , desc  :: T.Text
   , limit :: Maybe Int
   , tier  :: Maybe Int
-}
+} deriving (Show)
 
 instance Ord Item where
   (<=) a b = itemId a <= itemId b
@@ -62,7 +65,7 @@ data Recipe = Recipe {
   , exclusiveRequires :: Inventory
   , inputs            :: Inventory
   , outputs           :: Inventory
-}
+} deriving (Show)
 
 instance Ord Recipe where
   (<=) a b = recipeId a <= recipeId b

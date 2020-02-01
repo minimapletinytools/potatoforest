@@ -2,6 +2,11 @@
 {-# LANGUAGE DuplicateRecordFields    #-}
 
 module Potato.Forest.Parser (
+  forestBlocksParser
+  , runForestParser
+  , runForestParser'
+
+  -- exported for testing
 
 ) where
 
@@ -14,12 +19,14 @@ import           Data.Char
 import           Data.Coerce
 import           Data.Default
 import qualified Data.Foldable              as Fold
+import qualified Data.Map                   as M
 import qualified Data.Set                   as S
-import           Data.Text                  (pack, unpack)
+import           Data.Text                  (cons, pack, unpack)
 import           Data.Void
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
+
 
 data ParserState = ParserState {
   knownItems     :: S.Set  P.ItemId
@@ -34,6 +41,11 @@ type Parser = StateT ParserState (Parsec Void Text)
 runForestParser :: Parser a -> Text -> Either (ParseErrorBundle Text Void) (a, ParserState)
 runForestParser p = runParser (runStateT p emptyParserState) "Potato Forest"
 
+-- | same as 'runForestParser' except ignores state
+runForestParser' :: Parser a -> Text -> Either (ParseErrorBundle Text Void) a
+runForestParser' p s = case runForestParser p s of
+  Left x  -> Left x
+  Right x -> Right $ fst x
 
 sc :: Parser ()
 sc = L.space space1 (L.skipLineComment "#") empty
@@ -71,6 +83,9 @@ reservedIdentifiers = S.fromList ["exclusive"] `S.union` reservedWords
 reservedWord :: Parser Text
 reservedWord = choice . map (try . symbol) $ S.toList reservedWords
 
+reservedOrEof :: Parser ()
+reservedOrEof = lookAhead . try $ (space :: Parser ()) *> (void reservedWord <|> eof)
+
 data BaseItemExp = BaseItemExp Int  P.ItemId
 data RequiredItemExp = ItemExp BaseItemExp | ExclusiveItemExp BaseItemExp
 
@@ -88,13 +103,11 @@ parseRequiredItemExp = do
     then return (ExclusiveItemExp itemExp)
     else return (ItemExp itemExp)
 
-
 identifier :: Parser Text
 identifier = (lexeme . try) (p >>= check)
   where
-    -- TODO make sure it's not all numbers
-    p       = takeWhileP (Just "itemId") isAlphaNum
-    check x = if x `S.member` reservedIdentifiers || all isDigit (unpack x)
+    p       = cons <$> letterChar <*> takeWhileP (Just "itemId") (\s -> isAlphaNum s || s == '_')
+    check x = if x `S.member` reservedIdentifiers
               then fail $ "keyword " ++ show x ++ " cannot be an identifier"
               else return x
 
@@ -138,14 +151,15 @@ instance Default OptionalItemFields where
 -- | incrementally adds optional fields for an item
 parseOptionalItemFields :: OptionalItemFields -> Parser OptionalItemFields
 parseOptionalItemFields oif =
-  helper "TITLE" (manyTill asciiChar reservedWord) (\x oif -> oif { title = pack x})
-  <|> helper "DESC" (manyTill asciiChar reservedWord) (\x oif -> oif { desc = pack x})
+  helper "TITLE" tillReserved (\x oif -> oif { title = pack x})
+  <|> helper "DESC" tillReserved (\x oif -> oif { desc = pack x})
   <|> helper "LIMIT" number (\x oif -> oif { limit = Just x})
   <|> helper "TIER" number (\x oif -> oif { tier = Just x})
   <|> helper "QUANTITY" number (\x oif -> oif { quantity = Just x})
   <|> return oif where
-    helper :: Text -> Parser a -> (a -> OptionalItemFields -> OptionalItemFields) -> Parser OptionalItemFields
-    helper s p f = try $ do
+    tillReserved = lexeme $ manyTill asciiChar $ reservedOrEof
+    helper :: (Show a) => Text -> Parser a -> (a -> OptionalItemFields -> OptionalItemFields) -> Parser OptionalItemFields
+    helper s p f = lexeme . try $ do
       symbol s
       x <- p
       parseOptionalItemFields $ f x oif
@@ -154,7 +168,7 @@ parseOptionalItemFields oif =
 -- TODO also return Maybe Recipe
 parseItem :: Parser P.Item
 parseItem = do
-  string "ITEM"
+  symbol "ITEM"
   itemId' <- parseItemId True
   oif <- parseOptionalItemFields def
   return $ P.Item {
@@ -164,3 +178,57 @@ parseItem = do
       , limit = limit oif
       , tier = tier oif
     }
+
+parseRecipe :: Parser P.Recipe
+parseRecipe = fail "not implemented"
+
+parseStarting :: Parser (M.Map P.ItemId Int)
+parseStarting = do
+  symbol "STARTING"
+  itemExprs <- manyTill parseBaseItemExp reservedOrEof
+  return $ M.fromList $ map (\(BaseItemExp n i) -> (i, n)) itemExprs
+
+-- | final output type of this parser
+data ForestBlocks = ForestBlocks {
+  items           :: P.ItemSet
+  , recipes       :: P.RecipeSet
+  , startingItems :: M.Map P.ItemId Int
+} deriving (Show)
+
+-- can I use generics and deriving here?
+instance Default ForestBlocks where
+  def = ForestBlocks {
+      items = S.empty
+      , recipes = S.empty
+      , startingItems = M.empty
+    }
+
+forestBlocksParser_ :: ForestBlocks -> Parser ForestBlocks
+forestBlocksParser_ fb =
+  helper parseItem (\x fb' -> fb' { items = S.insert x (items fb') } )
+  <|> helper parseRecipe (\x fb' -> fb' { recipes = S.insert x (recipes fb')} )
+  <|> helper parseStarting (\x fb' -> fb' { startingItems = x } )
+  -- <?> "oops" where
+  <|> finish where
+  -- <|> return fb where
+    helper :: (Show a) => Parser a -> (a -> ForestBlocks -> ForestBlocks) -> Parser ForestBlocks
+    helper p f = try $ do
+      trace (show fb) $ return ()
+      x <- p
+      trace ("found: " ++ show x) $ return ()
+      trace (show $ f x fb) $ return ()
+      forestBlocksParser_ (f x fb)
+    finish = do
+      trace "trying " $ return ()
+      eof
+      trace "eof " $ return ()
+      return fb
+
+-- | parser for everything
+forestBlocksParser :: Parser ForestBlocks
+forestBlocksParser = do
+  trace "forest" $ return ()
+  r <- forestBlocksParser_ def
+  trace (show r) $ return ()
+  trace "done" $ return ()
+  return r
