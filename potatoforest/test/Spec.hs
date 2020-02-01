@@ -10,7 +10,25 @@ import           Test.Hspec.Megaparsec
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
 
+import Potato.Forest.Types as P
 import           Potato.Forest.Parser
+
+
+testItem :: P.Item
+testItem = Item {
+  itemId = ItemId "test_item"
+  , title = "this item is for testing"
+  , desc = "don't use me!"
+  , limit = Nothing
+  , tier = Just 0
+}
+
+test_Item_Eq :: Spec
+test_Item_Eq = do
+  it "equates two identical items" $
+    (testItem == testItem) `shouldBe` True
+  it "equates two different items with same id" $
+    (testItem == testItem { tier = Just 1 }) `shouldBe` True
 
 
 
@@ -18,7 +36,9 @@ main :: IO ()
 main = do
   testInput <- readFile "../examples/testing.spec"
   print $ runForestParser' forestBlocksParser testInput
-  hspec $
+  hspec $ do
+    describe "types" $ do
+      test_Item_Eq
     describe "parser" $ do
       it "does not crash" $
         (\s -> runForestParser' forestBlocksParser s) `shouldSucceedOn` testInput

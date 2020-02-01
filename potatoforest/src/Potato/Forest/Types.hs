@@ -44,7 +44,9 @@ data Item = Item {
 
 instance Ord Item where
   (<=) a b = itemId a <= itemId b
-instance Eq Item
+-- using "deriving Eq" instance rather than using Ord from above so we manually specify. IDK why
+instance Eq Item where
+  (==) a b = itemId a == itemId b
 
 -- | time is the only built in item
 builtin_time :: Item
@@ -69,7 +71,9 @@ data Recipe = Recipe {
 
 instance Ord Recipe where
   (<=) a b = recipeId a <= recipeId b
-instance Eq Recipe
+-- using "deriving Eq" instance rather than using Ord from above. IDK why
+instance Eq Recipe where
+  (==) a b = recipeId a == recipeId b
 
 type ItemSet = S.Set Item
 type RecipeSet = S.Set Recipe

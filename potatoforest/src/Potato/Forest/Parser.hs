@@ -209,26 +209,15 @@ forestBlocksParser_ fb =
   <|> helper parseRecipe (\x fb' -> fb' { recipes = S.insert x (recipes fb')} )
   <|> helper parseStarting (\x fb' -> fb' { startingItems = x } )
   -- <?> "oops" where
-  <|> finish where
+  <|> (eof *> return fb) where
   -- <|> return fb where
     helper :: (Show a) => Parser a -> (a -> ForestBlocks -> ForestBlocks) -> Parser ForestBlocks
     helper p f = try $ do
-      trace (show fb) $ return ()
       x <- p
-      trace ("found: " ++ show x) $ return ()
-      trace (show $ f x fb) $ return ()
       forestBlocksParser_ (f x fb)
-    finish = do
-      trace "trying " $ return ()
-      eof
-      trace "eof " $ return ()
-      return fb
 
 -- | parser for everything
 forestBlocksParser :: Parser ForestBlocks
 forestBlocksParser = do
-  trace "forest" $ return ()
   r <- forestBlocksParser_ def
-  trace (show r) $ return ()
-  trace "done" $ return ()
   return r
