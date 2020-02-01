@@ -86,22 +86,28 @@ reservedWord = choice . map (try . symbol) $ S.toList reservedWords
 reservedOrEof :: Parser ()
 reservedOrEof = lookAhead . try $ (space :: Parser ()) *> (void reservedWord <|> eof)
 
-data BaseItemExp = BaseItemExp Int  P.ItemId
-data RequiredItemExp = ItemExp BaseItemExp | ExclusiveItemExp BaseItemExp
+data BaseItemExp = BaseItemExp Int  P.ItemId deriving (Show)
+data RequiredItemExp = ItemExp BaseItemExp | ExclusiveItemExp BaseItemExp deriving (Show)
 
 parseBaseItemExp :: Parser BaseItemExp
-parseBaseItemExp = do
+parseBaseItemExp = lexeme $ do
   amount <- try number <|> return 1
   item <- parseItemId False
   return $ BaseItemExp amount item
 
+parseBaseItemExprList :: Parser [BaseItemExp]
+parseBaseItemExprList = manyTill parseBaseItemExp reservedOrEof
+
 parseRequiredItemExp :: Parser RequiredItemExp
-parseRequiredItemExp = do
+parseRequiredItemExp = lexeme $ do
   exclusive <- try (symbol "exclusive" >> return True) <|> return False
   itemExp <- parseBaseItemExp
   if exclusive
     then return (ExclusiveItemExp itemExp)
     else return (ItemExp itemExp)
+
+parseRequiredItemExprList :: Parser [RequiredItemExp]
+parseRequiredItemExprList = manyTill parseRequiredItemExp reservedOrEof
 
 identifier :: Parser Text
 identifier = (lexeme . try) (p >>= check)
@@ -185,7 +191,7 @@ parseRecipe = fail "not implemented"
 parseStarting :: Parser (M.Map P.ItemId Int)
 parseStarting = do
   symbol "STARTING"
-  itemExprs <- manyTill parseBaseItemExp reservedOrEof
+  itemExprs <- parseBaseItemExprList
   return $ M.fromList $ map (\(BaseItemExp n i) -> (i, n)) itemExprs
 
 -- | final output type of this parser
