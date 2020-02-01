@@ -1,6 +1,9 @@
 
 module Potato.Forest.Types (
-
+  ItemId(..)
+  , RecipeId(..)
+  , Item(..)
+  , Recipe(..)
 ) where
 
 import           Relude
@@ -38,9 +41,9 @@ data Item = Item {
 
 instance Ord Item where
   (<=) a b = itemId a <= itemId b
-
 instance Eq Item
 
+-- | time is the only built in item
 builtin_time :: Item
 builtin_time = Item {
   itemId = ItemId "time"
@@ -49,8 +52,6 @@ builtin_time = Item {
   , limit = Nothing
   , tier = Just 0
 }
-
-
 
 -- | map of item to quantity
 type Inventory = M.Map Item Int
@@ -65,17 +66,14 @@ data Recipe = Recipe {
 
 instance Ord Recipe where
   (<=) a b = recipeId a <= recipeId b
-
 instance Eq Recipe
 
--- logically these are just sets as Items and Recipes are immutable
--- but semantically we want often want to treat them as maps
--- TODO switch to set?
 type ItemSet = S.Set Item
 type RecipeSet = S.Set Recipe
 
--- list of required item and set of recipes that use that item
+-- | list of required item and set of recipes that use that item
 type ItemConnections = M.Map Item RecipeSet
+-- | maps an Item to its ItemConnections
 type ItemConnectionsMap = M.Map Item ItemConnections
 
 

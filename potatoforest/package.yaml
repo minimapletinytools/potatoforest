@@ -69,6 +69,10 @@ dependencies:
 - containers
 - megaparsec
 - relude
+- hspec
+- hspec-megaparsec
+- mtl
+- data-default
 
 library:
   source-dirs: src
