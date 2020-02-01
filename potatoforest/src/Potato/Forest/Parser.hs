@@ -83,8 +83,13 @@ reservedIdentifiers = S.fromList ["exclusive"] `S.union` reservedWords
 reservedWord :: Parser Text
 reservedWord = choice . map (try . symbol) $ S.toList reservedWords
 
-reservedOrEof :: Parser ()
-reservedOrEof = lookAhead . try $ (space :: Parser ()) *> (void reservedWord <|> eof)
+--reservedOrEof :: Parser ()
+--reservedOrEof = lookAhead . try $ (space :: Parser ()) *> (void reservedWord <|> eof)
+
+-- | checks for commands (all caps at the start of a new line)
+lookAheadCommand :: Parser ()
+lookAheadCommand = lookAhead . try $ (space :: Parser ()) *> (void reservedWord <|> eof)
+--lookAheadCommand = lookAhead . try $ crlf *> (space :: Parser ()) *> (void (manyTill upperChar space) <|> eof)
 
 data BaseItemExp = BaseItemExp Int  P.ItemId deriving (Show)
 data RequiredItemExp = ItemExp BaseItemExp | ExclusiveItemExp BaseItemExp deriving (Show)
@@ -96,7 +101,7 @@ parseBaseItemExp = lexeme $ do
   return $ BaseItemExp amount item
 
 parseBaseItemExprList :: Parser [BaseItemExp]
-parseBaseItemExprList = manyTill parseBaseItemExp reservedOrEof
+parseBaseItemExprList = manyTill parseBaseItemExp lookAheadCommand
 
 parseRequiredItemExp :: Parser RequiredItemExp
 parseRequiredItemExp = lexeme $ do
@@ -107,15 +112,15 @@ parseRequiredItemExp = lexeme $ do
     else return (ItemExp itemExp)
 
 parseRequiredItemExprList :: Parser [RequiredItemExp]
-parseRequiredItemExprList = manyTill parseRequiredItemExp reservedOrEof
+parseRequiredItemExprList = manyTill parseRequiredItemExp lookAheadCommand
 
 identifier :: Parser Text
-identifier = (lexeme . try) (p >>= check)
-  where
-    p       = cons <$> letterChar <*> takeWhileP (Just "itemId") (\s -> isAlphaNum s || s == '_')
-    check x = if x `S.member` reservedIdentifiers
-              then fail $ "keyword " ++ show x ++ " cannot be an identifier"
-              else return x
+identifier = (lexeme . try) (p >>= check) where
+  p = cons <$> letterChar <*> takeWhileP (Just "itemId") (\s -> isAlphaNum s || s == '_')
+  check :: Text -> Parser Text
+  check x = if all isUpper (unpack x)
+    then fail $ "keyword " ++ show x ++ " cannot be an identifier"
+    else return x
 
 parseItemId :: Bool -> Parser  P.ItemId
 parseItemId storeUnique = do
@@ -161,10 +166,12 @@ parseOptionalItemFields oif =
   <|> helper "DESC" tillReserved (\x oif -> oif { desc = pack x})
   <|> helper "LIMIT" number (\x oif -> oif { limit = Just x})
   <|> helper "TIER" number (\x oif -> oif { tier = Just x})
+  <|> helper "REQUIRES" parseRequiredItemExprList (\x oif -> oif { requires = Just x})
+  <|> helper "INPUTS" parseBaseItemExprList (\x oif -> oif { inputs = Just x})
   <|> helper "QUANTITY" number (\x oif -> oif { quantity = Just x})
   <|> return oif where
-    tillReserved = lexeme $ manyTill asciiChar $ reservedOrEof
-    helper :: (Show a) => Text -> Parser a -> (a -> OptionalItemFields -> OptionalItemFields) -> Parser OptionalItemFields
+    tillReserved = lexeme $ manyTill asciiChar $ lookAheadCommand
+    helper :: Text -> Parser a -> (a -> OptionalItemFields -> OptionalItemFields) -> Parser OptionalItemFields
     helper s p f = lexeme . try $ do
       symbol s
       x <- p
@@ -217,7 +224,8 @@ forestBlocksParser_ fb =
     })
   <|> helper parseRecipe (\x fb' -> fb' { recipes = S.insert x (recipes fb')} )
   <|> helper parseStarting (\x fb' -> fb' { startingItems = x } )
-  <|> (eof *> return fb) where
+  <|> (eof *> return fb)
+  <?> "unknown command" where
     helper :: Parser a -> (a -> ForestBlocks -> ForestBlocks) -> Parser ForestBlocks
     helper p f = try $ do
       x <- p

@@ -1,4 +1,5 @@
 -use of `manyTill _ reservedWord` will break on comments I think
   -fix it :O
+  -just go until it hits an all caps word rather than reserved one
 -figure out what default deriving on Item and Recipe didn't work as expected
 -figure out how to derive Default instance rather than defining your own

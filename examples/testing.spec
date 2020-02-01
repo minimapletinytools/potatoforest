@@ -5,8 +5,19 @@ TIER 5
 LIMIT 1
 
 ITEM apple
+ITEM milk
+ITEM shake
+ITEM blender
 
 ITEM vegan_milkshake
+REQUIRES
+  blender
+INPUTS
+  milk
+  shake
+QUANTITY 2
+
+
 
 ITEM coin
 LIMIT 10
