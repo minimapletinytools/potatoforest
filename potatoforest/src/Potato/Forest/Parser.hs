@@ -172,18 +172,18 @@ parseOptionalItemFields oif =
 
 
 -- TODO also return Maybe Recipe
-parseItem :: Parser P.Item
+parseItem :: Parser (P.Item, Maybe P.Recipe)
 parseItem = do
   symbol "ITEM"
   itemId' <- parseItemId True
   oif <- parseOptionalItemFields def
-  return $ P.Item {
+  return $ (P.Item {
       itemId = itemId'
       , title = (title :: OptionalItemFields -> Text) oif
       , desc = desc oif
       , limit = limit oif
       , tier = tier oif
-    }
+    }, Nothing)
 
 parseRecipe :: Parser P.Recipe
 parseRecipe = fail "not implemented"
@@ -211,7 +211,10 @@ instance Default ForestBlocks where
 
 forestBlocksParser_ :: ForestBlocks -> Parser ForestBlocks
 forestBlocksParser_ fb =
-  helper parseItem (\x fb' -> fb' { items = S.insert x (items fb') } )
+  helper parseItem (\(x,r) fb' -> fb' {
+      items = S.insert x (items fb')
+      , recipes = fromMaybe (recipes fb') (r >>= \r' -> return $ S.insert r' (recipes fb'))
+    })
   <|> helper parseRecipe (\x fb' -> fb' { recipes = S.insert x (recipes fb')} )
   <|> helper parseStarting (\x fb' -> fb' { startingItems = x } )
   <|> (eof *> return fb) where
