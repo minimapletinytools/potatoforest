@@ -24,12 +24,13 @@ testItem = Item {
 }
 
 test_Item_Eq :: Spec
-test_Item_Eq = do
+test_Item_Eq = describe "Eq" $ do
   it "equates two identical items" $
     (testItem == testItem) `shouldBe` True
   it "equates two different items with same id" $
     (testItem == testItem { tier = Just 1 }) `shouldBe` True
-
+  it "does not equate two items with different id" $
+    (testItem == testItem { itemId = ItemId "test_item'" }) `shouldBe` False
 
 
 main :: IO ()
@@ -38,7 +39,8 @@ main = do
   print $ runForestParser' forestBlocksParser testInput
   hspec $ do
     describe "types" $ do
-      test_Item_Eq
+      describe "Item" $ do
+        test_Item_Eq
     describe "parser" $ do
       it "does not crash" $
         (\s -> runForestParser' forestBlocksParser s) `shouldSucceedOn` testInput

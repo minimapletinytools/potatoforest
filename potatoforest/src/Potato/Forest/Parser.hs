@@ -67,8 +67,8 @@ reservedWords = S.fromList [
   , "DESC"
   , "LIMIT"
   , "INPUTS"
+  , "REQUIRES"
   , "OUTPUTS"
-  , "RESERVED"
   , "QUANTITY"
   , "TIER"
   , "FULL"
@@ -208,10 +208,8 @@ forestBlocksParser_ fb =
   helper parseItem (\x fb' -> fb' { items = S.insert x (items fb') } )
   <|> helper parseRecipe (\x fb' -> fb' { recipes = S.insert x (recipes fb')} )
   <|> helper parseStarting (\x fb' -> fb' { startingItems = x } )
-  -- <?> "oops" where
   <|> (eof *> return fb) where
-  -- <|> return fb where
-    helper :: (Show a) => Parser a -> (a -> ForestBlocks -> ForestBlocks) -> Parser ForestBlocks
+    helper :: Parser a -> (a -> ForestBlocks -> ForestBlocks) -> Parser ForestBlocks
     helper p f = try $ do
       x <- p
       forestBlocksParser_ (f x fb)
