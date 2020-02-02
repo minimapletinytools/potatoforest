@@ -2,10 +2,9 @@
 {-# LANGUAGE DuplicateRecordFields    #-}
 
 module Potato.Forest.Parser (
-  forestBlocksParser
-  , runForestParser
+  runForestParser
   , runForestParser'
-
+  , runForestBlocksParser
   -- exported for testing
 
 ) where
@@ -29,17 +28,58 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 
 data ParserState = ParserState {
-  knownItems     :: S.Set  P.ItemId
-  , knownRecipes :: S.Set P.RecipeId
-}
+  knownItems     :: P.ItemSet
+  , knownRecipes :: P.RecipeSet
+  , startingItems :: P.Inventory
+} deriving (Show)
 
-emptyParserState = ParserState S.empty S.empty
+emptyParserState :: ParserState
+emptyParserState = ParserState S.empty S.empty M.empty
+
+itemDNE :: P.ItemId -> Parser a
+itemDNE itemId = fail ("item " ++ show itemId ++ " does not exist") *> undefined
+
+-- | adds an item to the ParserState
+-- returns True if the item already existed
+addItem :: P.Item -> Parser Bool
+addItem item = do
+  ps <- get
+  let
+    itemId = P.itemId item
+    knownItems' = knownItems ps
+    r = isJust (P.lookupItem itemId knownItems')
+  put $ ps { knownItems = S.insert item knownItems' }
+  return r
+
+
+-- | adds an recipe to the ParserState
+-- returns True if the recipe already existed
+addRecipe :: P.Recipe -> Parser Bool
+addRecipe recipe = do
+  ps <- get
+  let
+    recipeId = P.recipeId recipe
+    knownRecipes' = knownRecipes ps
+    r = isJust (P.lookupRecipe recipeId knownRecipes')
+  put $ ps { knownRecipes = S.insert recipe knownRecipes' }
+  return r
+
+
+getItem :: P.ItemId -> Parser (Maybe P.Item)
+getItem itemId = do
+  ps <- get
+  return $ P.lookupItem itemId (knownItems ps)
+
+
 
 type Parser = StateT ParserState (Parsec Void Text)
 
 
+runForestParser_ :: ParserState -> Parser a -> Text -> Either (ParseErrorBundle Text Void) (a, ParserState)
+runForestParser_ ps p = runParser (runStateT p ps) "Potato Forest"
+
 runForestParser :: Parser a -> Text -> Either (ParseErrorBundle Text Void) (a, ParserState)
-runForestParser p = runParser (runStateT p emptyParserState) "Potato Forest"
+runForestParser = runForestParser_ emptyParserState
 
 -- | same as 'runForestParser' except ignores state
 runForestParser' :: Parser a -> Text -> Either (ParseErrorBundle Text Void) a
@@ -49,6 +89,8 @@ runForestParser' p s = case runForestParser p s of
 
 sc :: Parser ()
 sc = L.space space1 (L.skipLineComment "#") empty
+
+-- myLexeme p = sc *> p
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
@@ -88,14 +130,47 @@ lookAheadCommand :: Parser ()
 lookAheadCommand = lookAhead . try $ (space :: Parser ()) *> (void reservedWord <|> eof)
 --lookAheadCommand = lookAhead . try $ (space :: Parser ()) *> (void (satisfy isUpper) <|> eof)
 
+identifier :: Parser Text
+identifier = (lexeme . try) (p >>= check) where
+  p = cons <$> letterChar <*> takeWhileP (Just "itemId") (\s -> isAlphaNum s || s == '_')
+  check :: Text -> Parser Text
+  check x = if all isUpper (unpack x)
+    then fail $ "keyword " ++ show x ++ " cannot be an identifier"
+    else return x
+
+parseItemId :: Parser P.ItemId
+parseItemId = do
+  itemId <-  P.ItemId <$> (lexeme identifier <?> "valid itemId")
+  -- with two pass parsing, this will never happen
+  --when (isJust (P.lookupRecipe (coerce itemId) (knownRecipes ps))) $ fail "itemId is the same as an existing recipeId"
+  -- not done here anymore
+  --when requireFirst && isJust (P.lookupItem itemId knownItems')
+  --  fail $ "item " ++ show itemId ++ " already exists"
+  return itemId
+
+
+
+class ItemExp a where
+  toItemAmount :: a -> (P.ItemId, Int)
+
 data BaseItemExp = BaseItemExp Int  P.ItemId deriving (Show)
-data RequiredItemExp = ItemExp BaseItemExp | ExclusiveItemExp BaseItemExp deriving (Show)
+data RequiredItemExp = SharedItemExp BaseItemExp | ExclusiveItemExp BaseItemExp deriving (Show)
+isRequired :: RequiredItemExp -> Bool
+isRequired (SharedItemExp _) = False
+isRequired _ = True
+
+instance ItemExp BaseItemExp where
+  toItemAmount (BaseItemExp q i) = (i,q)
+
+instance ItemExp RequiredItemExp where
+  toItemAmount (SharedItemExp i) = toItemAmount i
+  toItemAmount (ExclusiveItemExp i) = toItemAmount i
 
 -- |
 parseBaseItemExp :: Parser BaseItemExp
 parseBaseItemExp = lexeme $ do
   amount <- try number <|> return 1
-  item <- parseItemId False
+  item <- parseItemId
   return $ BaseItemExp amount item
 
 parseBaseItemExprList :: Parser [BaseItemExp]
@@ -107,31 +182,10 @@ parseRequiredItemExp = lexeme $ do
   itemExp <- parseBaseItemExp
   if exclusive
     then return (ExclusiveItemExp itemExp)
-    else return (ItemExp itemExp)
+    else return (SharedItemExp itemExp)
 
 parseRequiredItemExprList :: Parser [RequiredItemExp]
 parseRequiredItemExprList = manyTill parseRequiredItemExp lookAheadCommand
-
-identifier :: Parser Text
-identifier = (lexeme . try) (p >>= check) where
-  p = cons <$> letterChar <*> takeWhileP (Just "itemId") (\s -> isAlphaNum s || s == '_')
-  check :: Text -> Parser Text
-  check x = if all isUpper (unpack x)
-    then fail $ "keyword " ++ show x ++ " cannot be an identifier"
-    else return x
-
-parseItemId :: Bool -> Parser  P.ItemId
-parseItemId storeUnique = do
-  ps <- get
-  let
-    knownItems' = knownItems ps
-  itemId <-  P.ItemId <$> (lexeme identifier <?> "valid itemId")
-  when (coerce itemId `S.member` knownRecipes ps) $ fail "itemId is the same as an existing recipeId"
-  when storeUnique $ do
-    if itemId `S.member` knownItems'
-      then fail "itemId already exists"
-      else put $ ps { knownItems = S.insert itemId knownItems' }
-  return itemId
 
 
 -- | helper data struct for parsing items
@@ -158,8 +212,8 @@ instance Default OptionalItemFields where
     }
 
 -- | incrementally adds optional fields for an item
-parseOptionalItemFields :: OptionalItemFields -> Parser OptionalItemFields
-parseOptionalItemFields oif =
+parseOptionalItemFields_ :: OptionalItemFields -> Parser OptionalItemFields
+parseOptionalItemFields_ oif =
   helper "TITLE" tillReserved (\x oif -> oif { title = pack x})
   <|> helper "DESC" tillReserved (\x oif -> oif { desc = pack x})
   <|> helper "LIMIT" number (\x oif -> oif { limit = Just x})
@@ -173,22 +227,67 @@ parseOptionalItemFields oif =
     helper s p f = lexeme . try $ do
       symbol s
       x <- p
-      parseOptionalItemFields $ f x oif
+      parseOptionalItemFields_ $ f x oif
 
+parseOptionalItemFields :: Parser OptionalItemFields
+parseOptionalItemFields = parseOptionalItemFields_ def
 
--- TODO also return Maybe Recipe
-parseItem :: Parser (P.Item, Maybe P.Recipe)
+parseItem :: Parser P.Item
 parseItem = do
   symbol "ITEM"
-  itemId' <- parseItemId True
-  oif <- parseOptionalItemFields def
-  return $ (P.Item {
+  itemId' <- parseItemId
+  oif <- parseOptionalItemFields
+  let item = P.Item {
       itemId = itemId'
       , title = (title :: OptionalItemFields -> Text) oif
       , desc = desc oif
       , limit = limit oif
       , tier = tier oif
-    }, Nothing)
+    }
+  exists <- addItem item
+  when exists $ fail $ "item " ++ show itemId' ++ " already exists"
+  return item
+
+buildInventory_ :: (ItemExp a) => [a] -> Parser P.Inventory
+buildInventory_ exps = do
+  knownItems' <- knownItems <$> get
+  let
+    i1 = map toItemAmount exps
+    mapFn (i,q) = case P.lookupItem i knownItems' of
+      Nothing -> itemDNE i
+      Just x -> return (x, q)
+  i2 <- mapM mapFn i1
+  return $ M.fromList i2
+
+buildInventory :: (ItemExp a) => Maybe [a] -> Parser P.Inventory
+buildInventory mexps = case mexps of
+  Nothing -> return M.empty
+  Just exps -> buildInventory_ exps
+
+parseItemRecipe :: Parser (Maybe P.Recipe)
+parseItemRecipe = do
+  symbol "ITEM"
+  itemId' <- parseItemId
+  oif <- parseOptionalItemFields
+  existingItem <- getItem itemId'
+  case existingItem of
+    Nothing -> itemDNE itemId'
+    Just item -> if isNothing (requires oif) && isNothing (inputs oif)
+      then return Nothing
+      else do
+        requires' <- buildInventory (fmap (filter isRequired) (requires oif))
+        exclusiveRequires' <- buildInventory (fmap (filter (not .isRequired)) (requires oif))
+        inputs' <- buildInventory (inputs oif)
+        let recipe = P.Recipe {
+            recipeId = P.RecipeId $ itemId' & (\(P.ItemId i) ->  "_____" <> i)
+            , requires = requires'
+            , exclusiveRequires = exclusiveRequires'
+            , inputs = inputs'
+            , outputs = M.singleton item (fromMaybe 1 (quantity oif))
+          }
+        exists <- addRecipe recipe
+        when exists $ fail $ "item " ++ show itemId' ++ " already exists"
+        return $ Just recipe
 
 parseRecipe :: Parser P.Recipe
 parseRecipe = fail "not implemented"
@@ -199,38 +298,28 @@ parseStarting = do
   itemExprs <- parseBaseItemExprList
   return $ M.fromList $ map (\(BaseItemExp n i) -> (i, n)) itemExprs
 
--- | final output type of this parser
-data ForestBlocks = ForestBlocks {
-  items           :: P.ItemSet
-  , recipes       :: P.RecipeSet
-  , startingItems :: M.Map P.ItemId Int
-} deriving (Show)
 
--- can I use generics and deriving here?
-instance Default ForestBlocks where
-  def = ForestBlocks {
-      items = S.empty
-      , recipes = S.empty
-      , startingItems = M.empty
-    }
+line :: Parser Text
+line = lexeme $ takeWhileP (Just "line") (not . (flip elem ("\r\n" :: String)))
 
-forestBlocksParser_ :: ForestBlocks -> Parser ForestBlocks
-forestBlocksParser_ fb =
-  helper parseItem (\(x,r) fb' -> fb' {
-      items = S.insert x (items fb')
-      , recipes = fromMaybe (recipes fb') (r >>= \r' -> return $ S.insert r' (recipes fb'))
-    })
-  <|> helper parseRecipe (\x fb' -> fb' { recipes = S.insert x (recipes fb')} )
-  <|> helper parseStarting (\x fb' -> fb' { startingItems = x } )
-  <|> (eof *> return fb)
-  <?> "unknown command" where
-    helper :: Parser a -> (a -> ForestBlocks -> ForestBlocks) -> Parser ForestBlocks
-    helper p f = try $ do
-      x <- p
-      forestBlocksParser_ (f x fb)
+-- | parses items only and stores results in ParserState
+parseItemsOnly :: Parser ()
+parseItemsOnly =
+  try (void parseItem *> parseItemsOnly)
+  <|> eof
+  <|> (line *> parseItemsOnly)
 
--- | parser for everything
-forestBlocksParser :: Parser ForestBlocks
-forestBlocksParser = do
-  r <- forestBlocksParser_ def
-  return r
+parseRest :: Parser ()
+parseRest =
+  try (void parseItemRecipe *> parseRest)
+  <|> try (void parseRecipe *> parseRest)
+  <|> try (void parseStarting *> parseRest)
+  <|> eof
+  <|> (line *> parseRest)
+
+runForestBlocksParser :: Text -> Either (ParseErrorBundle Text Void) ParserState
+runForestBlocksParser s = case runForestParser parseItemsOnly s of
+  Left e -> Left e
+  Right (_, itemsOnlyState) -> trace ("made it here: " <> show itemsOnlyState) $ case runForestParser_ itemsOnlyState parseRest s of
+    Left e -> Left e
+    Right (_, finalState) -> trace ("finish: " <> show finalState) Right finalState

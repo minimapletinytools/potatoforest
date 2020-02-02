@@ -8,7 +8,6 @@ import           Data.Void
 import           Test.Hspec
 import           Test.Hspec.Megaparsec
 import           Text.Megaparsec
-import           Text.Megaparsec.Char
 
 import Potato.Forest.Types as P
 import           Potato.Forest.Parser
@@ -32,15 +31,19 @@ test_Item_Eq = describe "Eq" $ do
   it "does not equate two items with different id" $
     (testItem == testItem { itemId = ItemId "test_item'" }) `shouldBe` False
 
+test_runForestBlocksParser :: Text -> Spec
+test_runForestBlocksParser testInput = describe "runForestBlocksParser" $ do
+  it "does not crash on test input" $ do
+    runForestBlocksParser testInput `shouldSatisfy` \case
+      Left x -> trace (errorBundlePretty x) $ False
+      Right x -> True
 
 main :: IO ()
 main = do
   testInput <- readFile "../examples/testing.spec"
-  print $ runForestParser' forestBlocksParser testInput
   hspec $ do
     describe "types" $ do
       describe "Item" $ do
         test_Item_Eq
     describe "parser" $ do
-      it "does not crash" $
-        (\s -> runForestParser' forestBlocksParser s) `shouldSucceedOn` testInput
+      test_runForestBlocksParser testInput

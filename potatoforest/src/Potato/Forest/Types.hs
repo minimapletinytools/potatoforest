@@ -4,6 +4,8 @@ module Potato.Forest.Types (
   , RecipeId(..)
   , Item(..)
   , Recipe(..)
+  , lookupItem
+  , lookupRecipe
   , Inventory
   , ItemSet
   , RecipeSet
@@ -17,6 +19,9 @@ import qualified Data.Set.Internal as S
 
 import           Data.Maybe
 import qualified Data.Text         as T
+
+import           Data.Default
+
 
 -- | parser item
 {-
@@ -48,21 +53,30 @@ instance Ord Item where
 instance Eq Item where
   (==) a b = itemId a == itemId b
 
+instance Default Item where
+  def = Item {
+      itemId = ItemId ""
+      , title = ""
+      , desc = ""
+      , limit = Nothing
+      , tier = Nothing
+    }
+
 -- | time is the only built in item
 builtin_time :: Item
 builtin_time = Item {
-  itemId = ItemId "time"
-  , title = "time"
-  , desc = "1 unit of time"
-  , limit = Nothing
-  , tier = Just 0
-}
+    itemId = ItemId "time"
+    , title = "time"
+    , desc = "1 unit of time"
+    , limit = Nothing
+    , tier = Just 0
+  }
 
 -- | map of item to quantity
 type Inventory = M.Map Item Int
 
 data Recipe = Recipe {
-  recipeId            :: T.Text
+  recipeId            :: RecipeId
   , requires          :: Inventory
   , exclusiveRequires :: Inventory
   , inputs            :: Inventory
@@ -74,6 +88,15 @@ instance Ord Recipe where
 -- using "deriving Eq" instance rather than using Ord from above. IDK why
 instance Eq Recipe where
   (==) a b = recipeId a == recipeId b
+
+instance Default Recipe where
+  def = Recipe {
+      recipeId = RecipeId ""
+      , requires = M.empty
+      , exclusiveRequires = M.empty
+      , inputs = M.empty
+      , outputs = M.empty
+    }
 
 type ItemSet = S.Set Item
 type RecipeSet = S.Set Recipe
@@ -89,6 +112,19 @@ type ItemConnectionsMap = M.Map Item ItemConnections
 mapSetToMap :: (a -> b) -> S.Set a -> M.Map a b
 mapSetToMap f S.Tip                = M.Tip
 mapSetToMap f (S.Bin sz elt ls rs) = M.Bin sz elt (f elt) (mapSetToMap f ls) (mapSetToMap f rs)
+
+lookup :: Ord a => a -> S.Set a -> Maybe a
+lookup !_ S.Tip = Nothing
+lookup x (S.Bin _ y l r) | x == y = Just y
+                       | x < y = lookup x l
+                       | otherwise = lookup x r
+
+lookupItem :: ItemId -> ItemSet -> Maybe Item
+lookupItem i = lookup (def {itemId = i})
+
+lookupRecipe :: RecipeId -> RecipeSet -> Maybe Recipe
+lookupRecipe i = lookup (def {recipeId = i})
+
 
 findItemConnections :: RecipeSet -> Item -> ItemConnections
 findItemConnections = undefined
