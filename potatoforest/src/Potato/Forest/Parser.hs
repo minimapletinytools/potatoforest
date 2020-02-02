@@ -83,17 +83,15 @@ reservedIdentifiers = S.fromList ["exclusive"] `S.union` reservedWords
 reservedWord :: Parser Text
 reservedWord = choice . map (try . symbol) $ S.toList reservedWords
 
---reservedOrEof :: Parser ()
---reservedOrEof = lookAhead . try $ (space :: Parser ()) *> (void reservedWord <|> eof)
-
--- | checks for commands (all caps at the start of a new line)
+-- | TODO this won't let you use reserved words in descriptions and title :(
 lookAheadCommand :: Parser ()
 lookAheadCommand = lookAhead . try $ (space :: Parser ()) *> (void reservedWord <|> eof)
---lookAheadCommand = lookAhead . try $ crlf *> (space :: Parser ()) *> (void (manyTill upperChar space) <|> eof)
+--lookAheadCommand = lookAhead . try $ (space :: Parser ()) *> (void (satisfy isUpper) <|> eof)
 
 data BaseItemExp = BaseItemExp Int  P.ItemId deriving (Show)
 data RequiredItemExp = ItemExp BaseItemExp | ExclusiveItemExp BaseItemExp deriving (Show)
 
+-- |
 parseBaseItemExp :: Parser BaseItemExp
 parseBaseItemExp = lexeme $ do
   amount <- try number <|> return 1
