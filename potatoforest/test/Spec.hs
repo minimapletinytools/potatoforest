@@ -4,7 +4,6 @@ import           Relude                hiding (readFile)
 
 import           Control.Applicative   hiding (some)
 import           Data.Text.IO
-import           Data.Void
 import           Test.Hspec
 import           Test.Hspec.Megaparsec
 import           Text.Megaparsec

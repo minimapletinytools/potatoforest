@@ -139,15 +139,7 @@ identifier = (lexeme . try) (p >>= check) where
     else return x
 
 parseItemId :: Parser P.ItemId
-parseItemId = do
-  itemId <-  P.ItemId <$> (lexeme identifier <?> "valid itemId")
-  -- with two pass parsing, this will never happen
-  --when (isJust (P.lookupRecipe (coerce itemId) (knownRecipes ps))) $ fail "itemId is the same as an existing recipeId"
-  -- not done here anymore
-  --when requireFirst && isJust (P.lookupItem itemId knownItems')
-  --  fail $ "item " ++ show itemId ++ " already exists"
-  return itemId
-
+parseItemId = P.ItemId <$> (lexeme identifier <?> "valid itemId")
 
 
 class ItemExp a where
@@ -289,8 +281,27 @@ parseItemRecipe = do
         when exists $ fail $ "item " ++ show itemId' ++ " already exists"
         return $ Just recipe
 
+-- | helper data struct for parsing items
+data OptionalRecipeFields = OptionalRecipeFields {
+  rrequires :: Maybe [RequiredItemExp]
+  , rinputs   :: Maybe [BaseItemExp]
+  , routputs :: Maybe [BaseItemExp]
+}
+
+-- can we just do deriving Default?
+instance Default OptionalRecipeFields where
+  def = OptionalRecipeFields {
+      rrequires = Nothing
+      , rinputs = Nothing
+      , routputs = Nothing
+    }
+
+
 parseRecipe :: Parser P.Recipe
-parseRecipe = fail "not implemented"
+parseRecipe = do
+  symbol "RECIPE"
+  recipeId' <- P.RecipeId <$> (lexeme identifier <?> "valid recipeId")
+  fail "not implemented"
 
 parseStarting :: Parser (M.Map P.ItemId Int)
 parseStarting = do
