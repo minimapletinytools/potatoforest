@@ -1,11 +1,14 @@
-- consider changing how time works (maybe make it an INPUT parameter instead of requires)
-  - can you allow other things to be treated like time to make it less special?
+:: TODO TMRW ::
+-add tests for untested stuff in Types.hs
+-slight cleanup in parser tests
+-try out basic reflex stuff
 
-- allow something like "INCLUDE time.spec" sorta commands
-  - the implementation should parse the files separately passing the state between them D:
+:: OTHER TODO ::
+IGNORE/FAIL-consider changing how time works (maybe make it an INPUT parameter instead of requires)
+  -can you allow other things to be treated like time to make it less special?
 
-- add parsing for infinity keyword
-- add STARTING parsing as part of item parsing and remove the other STARTING parsing
+-add parsing for infinity keyword
+-add STARTING parsing as part of item parsing and remove the other STARTING parsing
 
 :: PARSER TODO ::
 -high priority
@@ -16,5 +19,7 @@
   -fix show instances of recipes and starting items so that they don't show the items all over again
   -do variable name cleanup in parsers (maybe make new modules?)
 -low priority
+  -allow something like "INCLUDE helper.spec" sorta commands
+    -the implementation should parse the files separately passing the state between them D:
   -figure out what default deriving on Item and Recipe didn't work as expected
   -figure out how to derive Default instance rather than defining your own
