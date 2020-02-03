@@ -17,6 +17,14 @@ INPUTS
   shake
 QUANTITY 2
 
+RECIPE blenders_are_made_of_milk_and_money
+REQUIRES
+  exclusive blender
+  milk
+INPUTS
+  coin
+OUTPUTS
+  blender
 
 
 ITEM coin

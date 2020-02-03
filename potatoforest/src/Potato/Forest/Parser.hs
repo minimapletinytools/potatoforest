@@ -262,8 +262,8 @@ parseItemRecipe = do
     Just item -> if isNothing (requires oif) && isNothing (inputs oif)
       then return Nothing
       else do
-        requires' <- buildInventory (fmap (filter isRequired) (requires oif))
-        exclusiveRequires' <- buildInventory (fmap (filter (not .isRequired)) (requires oif))
+        exclusiveRequires' <- buildInventory (fmap (filter isRequired) (requires oif))
+        requires' <- buildInventory (fmap (filter (not .isRequired)) (requires oif))
         inputs' <- buildInventory (inputs oif)
         let
           recipeId' = P.RecipeId $ itemId' & (\(P.ItemId i) ->  "_____" <> i)
@@ -322,8 +322,8 @@ parseRecipe = do
     fail $ "recipe " ++ show recipeId' ++ " must have requirements or inputs"
   when (isNothing routputs') $
     fail $ "recipe " ++ show recipeId' ++ " must have output"
-  requires' <- buildInventory (fmap (filter isRequired) rrequires')
-  exclusiveRequires' <- buildInventory (fmap (filter (not .isRequired)) rrequires')
+  exclusiveRequires' <- buildInventory (fmap (filter isRequired) rrequires')
+  requires' <- buildInventory (fmap (filter (not .isRequired)) rrequires')
   inputs' <- buildInventory rinputs'
   outputs' <- buildInventory routputs'
   let recipe = P.Recipe {
