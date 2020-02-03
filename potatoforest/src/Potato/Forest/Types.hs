@@ -13,12 +13,12 @@ module Potato.Forest.Types (
 
 import           Relude
 
--- importing internal gives us access too Map and Set ctors
-import qualified Data.Map.Internal as M
-import qualified Data.Set.Internal as S
+import           Potato.Forest.Internal.Containers
 
-import           Data.Maybe
-import qualified Data.Text         as T
+
+import qualified Data.Map                          as M
+import qualified Data.Set                          as S
+import qualified Data.Text                         as T
 
 import           Data.Default
 
@@ -94,19 +94,6 @@ type RecipeSet = S.Set Recipe
 type ItemConnections = M.Map Item RecipeSet
 -- | maps an Item to its ItemConnections
 type ItemConnectionsMap = M.Map Item ItemConnections
-
-
--- | converts a set to map
--- TODO move this into a different module so we don't have to import internal
-mapSetToMap :: (a -> b) -> S.Set a -> M.Map a b
-mapSetToMap f S.Tip                = M.Tip
-mapSetToMap f (S.Bin sz elt ls rs) = M.Bin sz elt (f elt) (mapSetToMap f ls) (mapSetToMap f rs)
-
-lookup :: Ord a => a -> S.Set a -> Maybe a
-lookup !_ S.Tip = Nothing
-lookup x (S.Bin _ y l r) | x == y = Just y
-                       | x < y = lookup x l
-                       | otherwise = lookup x r
 
 lookupItem :: ItemId -> ItemSet -> Maybe Item
 lookupItem i = lookup (def {itemId = i})
