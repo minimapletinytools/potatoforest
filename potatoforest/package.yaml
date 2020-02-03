@@ -69,6 +69,7 @@ dependencies:
 - containers
 - megaparsec
 - relude
+- HUnit
 - hspec
 - hspec-megaparsec
 - mtl

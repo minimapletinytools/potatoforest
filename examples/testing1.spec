@@ -6,6 +6,7 @@ LIMIT 1
 
 ITEM apple
 ITEM milk
+REQUIRES apple
 ITEM shake
 ITEM blender
 

@@ -2,7 +2,8 @@
 {-# LANGUAGE DuplicateRecordFields    #-}
 
 module Potato.Forest.Parser (
-  runForestParser
+  ForestBlocks(..)
+  , runForestParser
   , runForestParser'
   , runForestBlocksParser
   -- exported for testing
@@ -22,14 +23,14 @@ import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
 
-data ParserState = ParserState {
+data ForestBlocks = ForestBlocks {
   knownItems      :: P.ItemSet
   , knownRecipes  :: P.RecipeSet
   , startingItems :: P.Inventory
 } deriving (Show)
 
-instance Default ParserState where
-  def = ParserState {
+instance Default ForestBlocks where
+  def = ForestBlocks {
       knownItems = S.singleton P.builtin_time
       , knownRecipes = S.empty
       , startingItems = M.empty
@@ -38,7 +39,7 @@ instance Default ParserState where
 itemDNE :: P.ItemId -> Parser a
 itemDNE itemId = fail ("item " ++ show itemId ++ " does not exist")
 
--- | adds an item to the ParserState
+-- | adds an item to the ForestBlocks
 -- returns True if the item already existed
 addItem :: P.Item -> Parser Bool
 addItem item = do
@@ -51,7 +52,7 @@ addItem item = do
   return r
 
 
--- | adds an recipe to the ParserState
+-- | adds an recipe to the ForestBlocks
 -- returns True if the recipe already existed
 addRecipe :: P.Recipe -> Parser Bool
 addRecipe recipe = do
@@ -71,13 +72,13 @@ getItem itemId = do
 
 
 
-type Parser = StateT ParserState (Parsec Void Text)
+type Parser = StateT ForestBlocks (Parsec Void Text)
 
 
-runForestParser_ :: ParserState -> Parser a -> Text -> Either (ParseErrorBundle Text Void) (a, ParserState)
+runForestParser_ :: ForestBlocks -> Parser a -> Text -> Either (ParseErrorBundle Text Void) (a, ForestBlocks)
 runForestParser_ ps p = runParser (runStateT p ps) "Potato Forest"
 
-runForestParser :: Parser a -> Text -> Either (ParseErrorBundle Text Void) (a, ParserState)
+runForestParser :: Parser a -> Text -> Either (ParseErrorBundle Text Void) (a, ForestBlocks)
 runForestParser = runForestParser_ def
 
 -- | same as 'runForestParser' except ignores state
@@ -353,14 +354,14 @@ parseStarting = do
 line :: Parser Text
 line = lexeme $ takeWhileP (Just "line") (not . (flip elem ("\r\n" :: String)))
 
--- | parses items only and stores results in ParserState
+-- | parses items only and stores results in ForestBlocks
 parseItemsOnly :: Parser ()
 parseItemsOnly =
   try (void parseItem *> parseItemsOnly)
   <|> eof
   <|> (line *> parseItemsOnly)
 
--- | parses everything but items and stores results in ParserState
+-- | parses everything but items and stores results in ForestBlocks
 parseRest :: Parser ()
 parseRest =
   try (void parseItemRecipe *> parseRest)
@@ -369,7 +370,7 @@ parseRest =
   <|> eof
   <|> (line *> parseRest)
 
-runForestBlocksParser :: Text -> Either (ParseErrorBundle Text Void) ParserState
+runForestBlocksParser :: Text -> Either (ParseErrorBundle Text Void) ForestBlocks
 runForestBlocksParser s = case runForestParser parseItemsOnly s of
   Left e -> Left e
   Right (_, itemsOnlyState) -> case runForestParser_ itemsOnlyState parseRest s of

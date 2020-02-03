@@ -10,6 +10,8 @@ module Potato.Forest.Types (
   , Inventory
   , ItemSet
   , RecipeSet
+
+  , generateTieredItems
 ) where
 
 
