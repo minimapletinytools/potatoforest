@@ -53,7 +53,7 @@ test_runForestBlocksParser filename = describe "runForestBlocksParser" $ do
 test_generateTieredItems :: Spec
 test_generateTieredItems = describe "generateTieredItems" $ do
   it ("handles simple case ok") $ do
-    r <- parseFile "../examples/testing2.spec"
+    r <- parseFile "testing2.spec"
     case r of
       Nothing -> assertFailure "could not read file"
       Just blocks -> do
@@ -70,6 +70,6 @@ main = do
       describe "Item" $ do
         test_Item_Eq
     describe "Parser" $ do
-      test_runForestBlocksParser "../examples/testing1.spec"
+      test_runForestBlocksParser "testing1.spec"
     describe "Methods" $ do
       test_generateTieredItems

@@ -1,5 +1,6 @@
 module Potato.Forest.Methods (
-  generateTieredItems
+  helloPotato
+  , generateTieredItems
 ) where
 
 import           Relude
@@ -10,6 +11,8 @@ import           Potato.Forest.Types
 import qualified Data.Map                          as M
 import qualified Data.Set                          as S
 
+helloPotato :: Text
+helloPotato = "hello potato"
 
 -- | list of required item and set of recipes that use that item
 type ItemConnections = M.Map Item RecipeSet
