@@ -1,3 +1,5 @@
 .DS_Store
 *frontend-result
 *potatoforest-result
+dist-newstyle
+dist-ghcjs

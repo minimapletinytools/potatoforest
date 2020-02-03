@@ -24,6 +24,8 @@ executable frontend
   build-depends:       base >=4.12 && <4.13
     , reflex-dom
     , relude
+    , containers
+    , text
     , potatoforest
   -- hs-source-dirs:
   default-language:    Haskell2010
