@@ -4,6 +4,7 @@ module Potato.Forest.Types (
   , RecipeId(..)
   , Item(..)
   , Recipe(..)
+  , builtin_time
   , lookupItem
   , lookupRecipe
   , Inventory

@@ -101,6 +101,7 @@ PHANTOM <omit/pass/false>
 These are described in detail in the graph generation section.
 
 ### Starting Items
+<TODO DELETE THIS SECTION, STARTING is part of item def now>
 Items available at start are specified as follows
 
 ```
@@ -109,11 +110,16 @@ STARTING
 ```
 
 ### Time
-The only built-in item is `time` which represents in-game elapsed time. Time is like an item with infinite starting quantity. It is treated uniquely by the system in the following ways:
+The only built-in item is `time` which represents in-game elapsed time. Time is treated differently in the following ways:
 
-1. Time can not be listed in an `OUTPUT` field.
+1. It has infinity starting quantity.
 
-2. Time can not be flagged as exclusive. Instead, if a set of recipes can not be executed at the same time, they should all require a unique token that is included as a starting item. For example:
+2. Time can not be listed in an `OUTPUT` field.
+
+3. Two recipes that require time will use the same piece of time (e.g. completing two recipes that require 1 unit of time takes 1 unit of time not 2).
+
+<TODO change this so you can flag time as exclusive which means it also requires the built-in research_token, this is really the same as 5. I think? So maybe input time and requires exclusive time mean the same thing>
+4. Time can not be flagged as exclusive. Instead, if a set of recipes can not be executed at the same time, they should all require a unique token that is included as a starting item. For example:
 
   ```
   ITEM research_token
@@ -131,7 +137,8 @@ The only built-in item is `time` which represents in-game elapsed time. Time is 
 
   In this case, a single starting `research_token` means only 1 recipe requiring `research token` can be executed at once.
 
-3. <TODO DELETE THIS AND DISALLOW TIME IN INPUT FIELD???> By putting time in the `INPUT` field means that no other recipe requiring or using time can be executed at the same time. It is like having a global `token` item that is included as an exclusive requirement for every recipe.
+<TODO DELETE THIS AND DISALLOW TIME IN INPUT FIELD???>
+5. By putting time in the `INPUT` field means that no other recipe requiring or using time can be executed at the same time. It is like having a global `token` item that is included as an exclusive requirement for every recipe.
 
 ## Graph Generator
 The graph generator generates a web-based graph visual of the defined item tree indicating which items are needed for which items. Hints can be added to the definition file to help structure the visual better.

@@ -28,8 +28,12 @@ data ParserState = ParserState {
   , startingItems :: P.Inventory
 } deriving (Show)
 
-emptyParserState :: ParserState
-emptyParserState = ParserState S.empty S.empty M.empty
+instance Default ParserState where
+  def = ParserState {
+      knownItems = S.singleton P.builtin_time
+      , knownRecipes = S.empty
+      , startingItems = M.empty
+    }
 
 itemDNE :: P.ItemId -> Parser a
 itemDNE itemId = fail ("item " ++ show itemId ++ " does not exist")
@@ -74,7 +78,7 @@ runForestParser_ :: ParserState -> Parser a -> Text -> Either (ParseErrorBundle 
 runForestParser_ ps p = runParser (runStateT p ps) "Potato Forest"
 
 runForestParser :: Parser a -> Text -> Either (ParseErrorBundle Text Void) (a, ParserState)
-runForestParser = runForestParser_ emptyParserState
+runForestParser = runForestParser_ def
 
 -- | same as 'runForestParser' except ignores state
 runForestParser' :: Parser a -> Text -> Either (ParseErrorBundle Text Void) a

@@ -1,6 +1,12 @@
 - consider changing how time works (maybe make it an INPUT parameter instead of requires)
   - can you allow other things to be treated like time to make it less special?
 
+- allow something like "INCLUDE time.spec" sorta commands
+  - the implementation should parse the files separately passing the state between them D:
+
+- add parsing for infinity keyword
+- add STARTING parsing as part of item parsing and remove the other STARTING parsing
+
 :: PARSER TODO ::
 -high priority
   -fix `manyTill _ reservedWord` parsing, it's broke af

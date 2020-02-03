@@ -1,17 +1,16 @@
 module Main (main) where
 
-import           Relude                hiding (readFile)
+import           Relude               hiding (readFile)
 
-import           Control.Applicative   hiding (some)
 import           Data.Text.IO
-import qualified Data.Text.Lazy        as LT
+import qualified Data.Text.Lazy       as LT
 import           Test.Hspec
-import           Test.Hspec.Megaparsec
+--import           Test.Hspec.Megaparsec
 import           Text.Megaparsec
 
 import           Potato.Forest.Parser
-import           Potato.Forest.Types   as P
-import           Text.Pretty.Simple    (pShow)
+import           Potato.Forest.Types  as P
+import           Text.Pretty.Simple   (pShow)
 
 
 
