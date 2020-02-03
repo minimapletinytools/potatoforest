@@ -103,8 +103,17 @@ lookupRecipe :: RecipeId -> RecipeSet -> Maybe Recipe
 lookupRecipe i = lookup (def {recipeId = i})
 
 
+-- STUFF BELOW IS UNTESTED
+
+addRecipeToItemConnections :: ItemConnections -> Recipe -> ItemConnections
+addRecipeToItemConnections itemConns recipe = r where
+  allInputs = requires recipe `M.union` exclusiveRequires recipe `M.union` inputs recipe
+  r = M.foldrWithKey (\k _ acc -> M.insertWith S.union k (S.singleton recipe) acc) itemConns allInputs
+
 findItemConnections :: RecipeSet -> Item -> ItemConnections
-findItemConnections = undefined
+findItemConnections recipes item = r where
+  recipes' = S.filter (\recipe -> item `M.member` outputs recipe) recipes
+  r = S.foldl addRecipeToItemConnections M.empty recipes'
 
 -- | does not handle forced tiers yet
 -- note that the first pass of this function should completely populate ItemConnectionsMap (unless we do early exit)

@@ -1,11 +1,14 @@
 - consider changing how time works (maybe make it an INPUT parameter instead of requires)
   - can you allow other things to be treated like time to make it less special?
-- fix show instances of recipes and starting items so that they don't show the items all over again
 
-- do variable name cleanup in parsers (maybe make new modules?)
-
--use of `manyTill _ reservedWord` will break on comments I think
-  -fix it :O
-  -just go until it hits an all caps word rather than reserved one
--figure out what default deriving on Item and Recipe didn't work as expected
--figure out how to derive Default instance rather than defining your own
+:: PARSER TODO ::
+-high priority
+  -fix `manyTill _ reservedWord` parsing, it's broke af
+  -should recognize any all caps word at the beginning of a line as a keyword
+  -easy way to fix is to require item descriptions to be in one line or to be in quotation marks
+-mid priority
+  -fix show instances of recipes and starting items so that they don't show the items all over again
+  -do variable name cleanup in parsers (maybe make new modules?)
+-low priority
+  -figure out what default deriving on Item and Recipe didn't work as expected
+  -figure out how to derive Default instance rather than defining your own
