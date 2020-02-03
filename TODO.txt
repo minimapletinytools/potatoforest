@@ -1,6 +1,6 @@
 :: TODO TMRW ::
--add tests for untested stuff in Types.hs
--slight cleanup in parser tests
+DONE-add tests for untested stuff in Types.hs
+DONE-slight cleanup in parser tests
 -try out basic reflex stuff
 
 :: OTHER TODO ::

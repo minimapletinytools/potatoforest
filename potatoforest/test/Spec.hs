@@ -1,30 +1,30 @@
 module Main (main) where
 
-import           Relude               hiding (readFile)
+import           Relude                hiding (readFile)
 
 import           Data.Text.IO
-import qualified Data.Text.Lazy       as LT
-import           Test.Hspec
+import qualified Data.Text.Lazy        as LT
+import           Text.Pretty.Simple    (pShow)
+
 --import           Test.Hspec.Megaparsec
+import           Test.Hspec
 import           Test.HUnit.Lang
 import           Text.Megaparsec
 
+
+import           Potato.Forest.Methods
 import           Potato.Forest.Parser
-import           Potato.Forest.Types  as P
-import           Text.Pretty.Simple   (pShow)
+import           Potato.Forest.Types
 
 
-
-
-
-testItem :: P.Item
+testItem :: Item
 testItem = Item {
-  itemId = ItemId "test_item"
-  , title = "this item is for testing"
-  , desc = "don't use me!"
-  , limit = Nothing
-  , tier = Just 0
-}
+    itemId = ItemId "test_item"
+    , title = "this item is for testing"
+    , desc = "don't use me!"
+    , limit = Nothing
+    , tier = Just 0
+  }
 
 test_Item_Eq :: Spec
 test_Item_Eq = describe "Eq" $ do
@@ -66,10 +66,10 @@ test_generateTieredItems = describe "generateTieredItems" $ do
 main :: IO ()
 main = do
   hspec $ do
-    describe "types" $ do
+    describe "Types" $ do
       describe "Item" $ do
         test_Item_Eq
-    describe "parser" $ do
+    describe "Parser" $ do
       test_runForestBlocksParser "../examples/testing1.spec"
-    describe "unlabeled" $ do
+    describe "Methods" $ do
       test_generateTieredItems
