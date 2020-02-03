@@ -3,6 +3,10 @@ DONE-add tests for untested stuff in Types.hs
 DONE-slight cleanup in parser tests
 -try out basic reflex stuff
 
+:: REFLEX TODO ::
+DONE-remove commond and backend, add potato forest
+-switch frontend to use hpack instead of cabal D:
+
 :: OTHER TODO ::
 IGNORE/FAIL-consider changing how time works (maybe make it an INPUT parameter instead of requires)
   -can you allow other things to be treated like time to make it less special?
