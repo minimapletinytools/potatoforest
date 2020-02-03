@@ -2,6 +2,8 @@
   - can you allow other things to be treated like time to make it less special?
 - fix show instances of recipes and starting items so that they don't show the items all over again
 
+- do variable name cleanup in parsers (maybe make new modules?)
+
 -use of `manyTill _ reservedWord` will break on comments I think
   -fix it :O
   -just go until it hits an all caps word rather than reserved one

@@ -11,6 +11,7 @@ module Potato.Forest.Types (
   , RecipeSet
 ) where
 
+
 import           Relude
 
 import           Potato.Forest.Internal.Containers
@@ -113,8 +114,8 @@ findNextTier ::
   -> ItemSet -- ^ list of items in lower tiers
   -> ItemSet -- ^ all items we want to search (must exclude items in lower tiers)
   -> ItemSet -- ^ returns set of items in next tier
-findNextTier recipes allConns lowerTiers searchItems = S.filter (ffn allConns) searchItems where
-  ffn allConns' item' = case M.lookup item' allConns of
+findNextTier recipes allConns lowerTiers searchItems = S.filter ffn searchItems where
+  ffn item' = case M.lookup item' allConns of
     -- no ItemConnections means it's a tier 0 item
     Nothing -> null lowerTiers
     -- all required items are contained in lower tiers

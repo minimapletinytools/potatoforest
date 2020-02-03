@@ -12,16 +12,11 @@ module Potato.Forest.Parser (
 import qualified Potato.Forest.Types        as P
 import           Relude
 
-import           Control.Monad              hiding (fail)
-
 import           Data.Char
-import           Data.Coerce
 import           Data.Default
-import qualified Data.Foldable              as Fold
 import qualified Data.Map                   as M
 import qualified Data.Set                   as S
 import           Data.Text                  (cons, pack, unpack)
-import           Data.Void
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -206,13 +201,13 @@ instance Default OptionalItemFields where
 -- | incrementally adds optional fields for an item
 parseOptionalItemFields_ :: OptionalItemFields -> Parser OptionalItemFields
 parseOptionalItemFields_ oif =
-  helper "TITLE" tillReserved (\x oif -> oif { title = pack x})
-  <|> helper "DESC" tillReserved (\x oif -> oif { desc = pack x})
-  <|> helper "LIMIT" number (\x oif -> oif { limit = Just x})
-  <|> helper "TIER" number (\x oif -> oif { tier = Just x})
-  <|> helper "REQUIRES" parseRequiredItemExprList (\x oif -> oif { requires = Just x})
-  <|> helper "INPUTS" parseBaseItemExprList (\x oif -> oif { inputs = Just x})
-  <|> helper "QUANTITY" number (\x oif -> oif { quantity = Just x})
+  helper "TITLE" tillReserved (\x oif' -> oif' { title = pack x})
+  <|> helper "DESC" tillReserved (\x oif' -> oif' { desc = pack x})
+  <|> helper "LIMIT" number (\x oif' -> oif' { limit = Just x})
+  <|> helper "TIER" number (\x oif' -> oif' { tier = Just x})
+  <|> helper "REQUIRES" parseRequiredItemExprList (\x oif' -> oif' { requires = Just x})
+  <|> helper "INPUTS" parseBaseItemExprList (\x oif' -> oif' { inputs = Just x})
+  <|> helper "QUANTITY" number (\x oif' -> oif' { quantity = Just x})
   <|> return oif where
     tillReserved = lexeme $ manyTill asciiChar lookAheadCommand
     helper :: Text -> Parser a -> (a -> OptionalItemFields -> OptionalItemFields) -> Parser OptionalItemFields
@@ -305,7 +300,6 @@ parseOptionalRecipeFields_ orf =
   <|> helper "INPUTS" parseBaseItemExprList (\x orf' -> orf' { rinputs = Just x})
   <|> helper "OUTPUTS" parseBaseItemExprList (\x orf' -> orf' { routputs = Just x})
   <|> return orf where
-    tillReserved = lexeme $ manyTill asciiChar lookAheadCommand
     helper :: Text -> Parser a -> (a -> OptionalRecipeFields -> OptionalRecipeFields) -> Parser OptionalRecipeFields
     helper s p f = lexeme . try $ do
       symbol s
