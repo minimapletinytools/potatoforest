@@ -1,3 +1,7 @@
+- consider changing how time works (maybe make it an INPUT parameter instead of requires)
+  - can you allow other things to be treated like time to make it less special?
+- fix show instances of recipes and starting items so that they don't show the items all over again
+
 -use of `manyTill _ reservedWord` will break on comments I think
   -fix it :O
   -just go until it hits an all caps word rather than reserved one

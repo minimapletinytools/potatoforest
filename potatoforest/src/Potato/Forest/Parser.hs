@@ -28,8 +28,8 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 
 data ParserState = ParserState {
-  knownItems     :: P.ItemSet
-  , knownRecipes :: P.RecipeSet
+  knownItems      :: P.ItemSet
+  , knownRecipes  :: P.RecipeSet
   , startingItems :: P.Inventory
 } deriving (Show)
 
@@ -37,7 +37,7 @@ emptyParserState :: ParserState
 emptyParserState = ParserState S.empty S.empty M.empty
 
 itemDNE :: P.ItemId -> Parser a
-itemDNE itemId = fail ("item " ++ show itemId ++ " does not exist") *> undefined
+itemDNE itemId = fail ("item " ++ show itemId ++ " does not exist")
 
 -- | adds an item to the ParserState
 -- returns True if the item already existed
@@ -149,13 +149,13 @@ data BaseItemExp = BaseItemExp Int  P.ItemId deriving (Show)
 data RequiredItemExp = SharedItemExp BaseItemExp | ExclusiveItemExp BaseItemExp deriving (Show)
 isRequired :: RequiredItemExp -> Bool
 isRequired (SharedItemExp _) = False
-isRequired _ = True
+isRequired _                 = True
 
 instance ItemExp BaseItemExp where
   toItemAmount (BaseItemExp q i) = (i,q)
 
 instance ItemExp RequiredItemExp where
-  toItemAmount (SharedItemExp i) = toItemAmount i
+  toItemAmount (SharedItemExp i)    = toItemAmount i
   toItemAmount (ExclusiveItemExp i) = toItemAmount i
 
 -- |
@@ -214,7 +214,7 @@ parseOptionalItemFields_ oif =
   <|> helper "INPUTS" parseBaseItemExprList (\x oif -> oif { inputs = Just x})
   <|> helper "QUANTITY" number (\x oif -> oif { quantity = Just x})
   <|> return oif where
-    tillReserved = lexeme $ manyTill asciiChar $ lookAheadCommand
+    tillReserved = lexeme $ manyTill asciiChar lookAheadCommand
     helper :: Text -> Parser a -> (a -> OptionalItemFields -> OptionalItemFields) -> Parser OptionalItemFields
     helper s p f = lexeme . try $ do
       symbol s
@@ -247,13 +247,13 @@ buildInventory_ exps = do
     i1 = map toItemAmount exps
     mapFn (i,q) = case P.lookupItem i knownItems' of
       Nothing -> itemDNE i
-      Just x -> return (x, q)
+      Just x  -> return (x, q)
   i2 <- mapM mapFn i1
   return $ M.fromList i2
 
 buildInventory :: (ItemExp a) => Maybe [a] -> Parser P.Inventory
 buildInventory mexps = case mexps of
-  Nothing -> return M.empty
+  Nothing   -> return M.empty
   Just exps -> buildInventory_ exps
 
 parseItemRecipe :: Parser (Maybe P.Recipe)
@@ -270,21 +270,23 @@ parseItemRecipe = do
         requires' <- buildInventory (fmap (filter isRequired) (requires oif))
         exclusiveRequires' <- buildInventory (fmap (filter (not .isRequired)) (requires oif))
         inputs' <- buildInventory (inputs oif)
-        let recipe = P.Recipe {
-            recipeId = P.RecipeId $ itemId' & (\(P.ItemId i) ->  "_____" <> i)
-            , requires = requires'
-            , exclusiveRequires = exclusiveRequires'
-            , inputs = inputs'
-            , outputs = M.singleton item (fromMaybe 1 (quantity oif))
-          }
+        let
+          recipeId' = P.RecipeId $ itemId' & (\(P.ItemId i) ->  "_____" <> i)
+          recipe = P.Recipe {
+              recipeId = recipeId'
+              , requires = requires'
+              , exclusiveRequires = exclusiveRequires'
+              , inputs = inputs'
+              , outputs = M.singleton item (fromMaybe 1 (quantity oif))
+            }
         exists <- addRecipe recipe
-        when exists $ fail $ "item " ++ show itemId' ++ " already exists"
+        when exists $ fail $ "recipe " ++ show recipeId' ++ " already exists"
         return $ Just recipe
 
 -- | helper data struct for parsing items
 data OptionalRecipeFields = OptionalRecipeFields {
-  rrequires :: Maybe [RequiredItemExp]
-  , rinputs   :: Maybe [BaseItemExp]
+  rrequires  :: Maybe [RequiredItemExp]
+  , rinputs  :: Maybe [BaseItemExp]
   , routputs :: Maybe [BaseItemExp]
 }
 
@@ -296,19 +298,59 @@ instance Default OptionalRecipeFields where
       , routputs = Nothing
     }
 
+-- | incrementally adds optional fields for a Recipe
+parseOptionalRecipeFields_ :: OptionalRecipeFields -> Parser OptionalRecipeFields
+parseOptionalRecipeFields_ orf =
+  helper "REQUIRES" parseRequiredItemExprList (\x orf' -> orf' { rrequires = Just x})
+  <|> helper "INPUTS" parseBaseItemExprList (\x orf' -> orf' { rinputs = Just x})
+  <|> helper "OUTPUTS" parseBaseItemExprList (\x orf' -> orf' { routputs = Just x})
+  <|> return orf where
+    tillReserved = lexeme $ manyTill asciiChar lookAheadCommand
+    helper :: Text -> Parser a -> (a -> OptionalRecipeFields -> OptionalRecipeFields) -> Parser OptionalRecipeFields
+    helper s p f = lexeme . try $ do
+      symbol s
+      x <- p
+      parseOptionalRecipeFields_ $ f x orf
+
+parseOptionalRecipeFields :: Parser OptionalRecipeFields
+parseOptionalRecipeFields = parseOptionalRecipeFields_ def
 
 parseRecipe :: Parser P.Recipe
 parseRecipe = do
   symbol "RECIPE"
   recipeId' <- P.RecipeId <$> (lexeme identifier <?> "valid recipeId")
-  fail "not implemented"
+  orf <- parseOptionalRecipeFields
+  let
+    rrequires' = rrequires orf
+    rinputs' = rinputs orf
+    routputs' = routputs orf
+  when (isNothing rrequires' && isNothing rinputs') $
+    fail $ "recipe " ++ show recipeId' ++ " must have requirements or inputs"
+  when (isNothing routputs') $
+    fail $ "recipe " ++ show recipeId' ++ " must have output"
+  requires' <- buildInventory (fmap (filter isRequired) rrequires')
+  exclusiveRequires' <- buildInventory (fmap (filter (not .isRequired)) rrequires')
+  inputs' <- buildInventory rinputs'
+  outputs' <- buildInventory routputs'
+  let recipe = P.Recipe {
+      recipeId = recipeId'
+      , requires = requires'
+      , exclusiveRequires = exclusiveRequires'
+      , inputs = inputs'
+      , outputs = outputs'
+    }
+  exists <- addRecipe recipe
+  when exists $
+    fail $ "recipe " ++ show recipeId' ++ " already exists"
+  return recipe
+
+
 
 parseStarting :: Parser (M.Map P.ItemId Int)
 parseStarting = do
   symbol "STARTING"
   itemExprs <- parseBaseItemExprList
   return $ M.fromList $ map (\(BaseItemExp n i) -> (i, n)) itemExprs
-
 
 line :: Parser Text
 line = lexeme $ takeWhileP (Just "line") (not . (flip elem ("\r\n" :: String)))
@@ -320,6 +362,7 @@ parseItemsOnly =
   <|> eof
   <|> (line *> parseItemsOnly)
 
+-- | parses everything but items and stores results in ParserState
 parseRest :: Parser ()
 parseRest =
   try (void parseItemRecipe *> parseRest)
@@ -331,6 +374,6 @@ parseRest =
 runForestBlocksParser :: Text -> Either (ParseErrorBundle Text Void) ParserState
 runForestBlocksParser s = case runForestParser parseItemsOnly s of
   Left e -> Left e
-  Right (_, itemsOnlyState) -> trace ("made it here: " <> show itemsOnlyState) $ case runForestParser_ itemsOnlyState parseRest s of
-    Left e -> Left e
-    Right (_, finalState) -> trace ("finish: " <> show finalState) Right finalState
+  Right (_, itemsOnlyState) -> case runForestParser_ itemsOnlyState parseRest s of
+    Left e                -> Left e
+    Right (_, finalState) -> Right finalState

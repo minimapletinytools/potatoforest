@@ -4,12 +4,17 @@ import           Relude                hiding (readFile)
 
 import           Control.Applicative   hiding (some)
 import           Data.Text.IO
+import qualified Data.Text.Lazy        as LT
 import           Test.Hspec
 import           Test.Hspec.Megaparsec
 import           Text.Megaparsec
 
-import Potato.Forest.Types as P
 import           Potato.Forest.Parser
+import           Potato.Forest.Types   as P
+import           Text.Pretty.Simple    (pShow)
+
+
+
 
 
 testItem :: P.Item
@@ -35,7 +40,7 @@ test_runForestBlocksParser testInput = describe "runForestBlocksParser" $ do
   it "does not crash on test input" $ do
     runForestBlocksParser testInput `shouldSatisfy` \case
       Left x -> trace (errorBundlePretty x) $ False
-      Right x -> True
+      Right x -> trace (LT.unpack (pShow x)) $ True
 
 main :: IO ()
 main = do

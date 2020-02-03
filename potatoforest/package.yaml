@@ -73,6 +73,7 @@ dependencies:
 - hspec-megaparsec
 - mtl
 - data-default
+- pretty-simple
 
 library:
   source-dirs: src

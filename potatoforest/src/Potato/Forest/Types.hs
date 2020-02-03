@@ -22,19 +22,6 @@ import qualified Data.Text         as T
 
 import           Data.Default
 
-
--- | parser item
-{-
-data ParserItem = ParserItem {
-  itemId      :: T.Text
-  , itemTitle :: T.Text
-  , itemDesc  :: T.Text
-}
-data BaseItemExp = BaseItemExp Int T.Text
-data ItemExp = ItemExp BaseItemExp | ExclusiveItemExp BaseItemExp
--}
-
-
 newtype ItemId = ItemId T.Text deriving (Eq, Ord, Show)
 newtype RecipeId = RecipeId T.Text deriving (Eq, Ord, Show)
 
@@ -76,18 +63,20 @@ builtin_time = Item {
 type Inventory = M.Map Item Int
 
 data Recipe = Recipe {
-  recipeId            :: RecipeId
-  , requires          :: Inventory
-  , exclusiveRequires :: Inventory
-  , inputs            :: Inventory
-  , outputs           :: Inventory
-} deriving (Show)
+    recipeId            :: RecipeId
+    , requires          :: Inventory
+    , exclusiveRequires :: Inventory
+    , inputs            :: Inventory
+    , outputs           :: Inventory
+  } deriving (Show)
 
 instance Ord Recipe where
   (<=) a b = recipeId a <= recipeId b
 -- using "deriving Eq" instance rather than using Ord from above. IDK why
 instance Eq Recipe where
   (==) a b = recipeId a == recipeId b
+
+
 
 instance Default Recipe where
   def = Recipe {
