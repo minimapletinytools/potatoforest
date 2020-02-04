@@ -22,6 +22,7 @@ executable frontend
   -- other-extensions:
   ghc-options: -Wall -Wcompat -Wincomplete-record-updates -Wincomplete-uni-patterns -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base >=4.12 && <4.13
+    , reflex
     , reflex-dom
     , relude
     , containers

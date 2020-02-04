@@ -1,20 +1,12 @@
-:: TODO TMRW ::
-DONE-add tests for untested stuff in Types.hs
-DONE-slight cleanup in parser tests
--try out basic reflex stuff
+::TODO TMRW::
+-finish required tasks in frontend
 
-:: REFLEX TODO ::
-DONE-remove commond and backend, add potato forest
--switch frontend to use hpack instead of cabal D:
-
-:: OTHER TODO ::
-IGNORE/FAIL-consider changing how time works (maybe make it an INPUT parameter instead of requires)
-  -can you allow other things to be treated like time to make it less special?
-
+::OTHER TODO::
 -add parsing for infinity keyword
 -add STARTING parsing as part of item parsing and remove the other STARTING parsing
+-make sure auto generated names can be used as properties in html
 
-:: PARSER TODO ::
+::PARSER TODO::
 -high priority
   -fix `manyTill _ reservedWord` parsing, it's broke af
   -should recognize any all caps word at the beginning of a line as a keyword
@@ -27,3 +19,12 @@ IGNORE/FAIL-consider changing how time works (maybe make it an INPUT parameter i
     -the implementation should parse the files separately passing the state between them D:
   -figure out what default deriving on Item and Recipe didn't work as expected
   -figure out how to derive Default instance rather than defining your own
+
+::DONE::
+DONE-add tests for untested stuff in Types.hs
+DONE-slight cleanup in parser tests
+DONE-try out basic reflex stuff
+DONE-remove commond and backend, add potato forest
+IGNORE-switch frontend to use hpack instead of cabal D:
+IGNORE/FAIL-consider changing how time works (maybe make it an INPUT parameter instead of requires)
+  -can you allow other things to be treated like time to make it less special?

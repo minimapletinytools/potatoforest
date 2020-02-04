@@ -1,52 +1,59 @@
-
+{-# LANGUAGE RecursiveDo #-}
 
 module Main where
 
-import           Potato.Forest.Methods
+import           Relude            hiding (Op)
+
+import           Control.Monad.Fix (MonadFix)
+import           Data.Map          (Map)
+import qualified Data.Map          as Map
+import           Data.Text         (Text, pack, unpack)
+import           Reflex
 import           Reflex.Dom
-import           Relude
+import           Text.Read         (readMaybe)
 
-import qualified Data.Map              as M
-import           Data.Text             (pack, unpack)
+import           Potato
 
-potatomain :: IO ()
-potatomain = mainWidget $ el "div" $ do
-  el "ul" $ do
-    el "li" $ text helloPotato
-    el "li" $ do
-      t <- inputElement $ def
-        & inputElementConfig_initialValue .~ "0"
-        & inputElementConfig_elementConfig . elementConfig_initialAttributes .~ ("type" =: "number")
-      dynText $ _inputElement_value t
+main = potatomain
 
-
-main :: IO ()
-main = mainWidget $ el "div" $ do
+othermain = mainWidget $ el "div" $ do
   nx <- numberInput
   d <- dropdown Times (constDyn ops) def
   ny <- numberInput
-  let
-    values = zipDynWith (,) nx ny
-    result = zipDynWith (\o (x,y) -> runOp o <$> x <*> y) (_dropdown_value d) values
-    resultText = fmap (pack . show) result
+  let values = zipDynWith (,) nx ny
+      result = zipDynWith (\o (x,y) -> runOp o <$> x <*> y) (_dropdown_value d) values
+      resultText = fmap (pack . show) result
   text " = "
   dynText resultText
 
-numberInput :: DomBuilder t m => m (Dynamic t (Maybe Double))
+numberInput :: (DomBuilder t m, MonadFix m) => m (Dynamic t (Maybe Double))
 numberInput = do
-  n <- inputElement $ def
-    & inputElementConfig_initialValue .~ "0"
-    & inputElementConfig_elementConfig . elementConfig_initialAttributes .~ ("type" =: "number")
-  return . fmap (readMaybe . unpack) $ _inputElement_value n
+  let
+    initAttrs = ("type" =: "number") <> (style False)
+    color error = if error then "red" else "green"
+    style error = "style" =: ("border-color: " <> color error)
+    styleChange :: Maybe Double -> Map AttributeName (Maybe Text)
+    styleChange result = case result of
+      (Just _)  -> fmap Just (style False)
+      (Nothing) -> fmap Just (style True)
+  rec
+    n <- inputElement $ def
+      & inputElementConfig_initialValue .~ "0"
+      & inputElementConfig_elementConfig . elementConfig_initialAttributes .~ initAttrs
+      & inputElementConfig_elementConfig . elementConfig_modifyAttributes .~ modAttrEv
+    let
+      result = fmap (readMaybe . unpack) $ _inputElement_value n
+      modAttrEv  = fmap styleChange (updated result)
+  return result
 
-data MyOp = Plus | Minus | Times | Divide deriving (Eq, Ord)
+data Op = Plus | Minus | Times | Divide deriving (Eq, Ord)
 
-ops :: M.Map MyOp Text
-ops = M.fromList [(Plus, "+"), (Minus, "-"), (Times, "*"), (Divide, "/")]
+ops :: Map Op Text
+ops = Map.fromList [(Plus, "+"), (Minus, "-"), (Times, "*"), (Divide, "/")]
 
-runOp :: Fractional a => MyOp -> a -> a -> a
+runOp :: Fractional a => Op -> a -> a -> a
 runOp s = case s of
-           Plus   -> (+)
-           Minus  -> (-)
-           Times  -> (*)
-           Divide -> (/)
+  Plus   -> (+)
+  Minus  -> (-)
+  Times  -> (*)
+  Divide -> (/)
