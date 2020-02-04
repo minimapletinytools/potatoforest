@@ -4,7 +4,6 @@
 module Potato.Forest.Parser (
   ForestBlocks(..)
   , runForestParser
-  , runForestParser'
   , runForestBlocksParser
   -- exported for testing
 
@@ -74,18 +73,13 @@ getItem itemId = do
 
 type Parser = StateT ForestBlocks (Parsec Void Text)
 
-
+-- TODO you can delete these now
 runForestParser_ :: ForestBlocks -> Parser a -> Text -> Either (ParseErrorBundle Text Void) (a, ForestBlocks)
 runForestParser_ ps p = runParser (runStateT p ps) "Potato Forest"
 
 runForestParser :: Parser a -> Text -> Either (ParseErrorBundle Text Void) (a, ForestBlocks)
 runForestParser = runForestParser_ def
 
--- | same as 'runForestParser' except ignores state
-runForestParser' :: Parser a -> Text -> Either (ParseErrorBundle Text Void) a
-runForestParser' p s = case runForestParser p s of
-  Left x  -> Left x
-  Right x -> Right $ fst x
 
 sc :: Parser ()
 sc = L.space space1 (L.skipLineComment "#") empty

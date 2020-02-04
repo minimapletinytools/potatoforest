@@ -23,8 +23,8 @@ import qualified Data.Text                         as T
 
 import           Data.Default
 
-newtype ItemId = ItemId T.Text deriving (Eq, Ord, Show)
-newtype RecipeId = RecipeId T.Text deriving (Eq, Ord, Show)
+newtype ItemId = ItemId { unItemId :: T.Text } deriving (Eq, Ord, Show)
+newtype RecipeId = RecipeId { unRecipeId :: T.Text } deriving (Eq, Ord, Show)
 
 -- | internal types
 data Item = Item {

@@ -17,6 +17,9 @@ mapSetToMap :: (a -> b) -> S.Set a -> M.Map a b
 mapSetToMap _ S.Tip                = M.Tip
 mapSetToMap f (S.Bin sz elt ls rs) = M.Bin sz elt (f elt) (mapSetToMap f ls) (mapSetToMap f rs)
 
+
+
+-- Notably, the method Relude.Extra.Map.lookup just returns the argument, not the item contained in the set
 lookup :: Ord a => a -> S.Set a -> Maybe a
 lookup !_ S.Tip = Nothing
 lookup x (S.Bin _ y l r)

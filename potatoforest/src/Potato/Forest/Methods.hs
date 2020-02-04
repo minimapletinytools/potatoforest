@@ -56,3 +56,14 @@ generateTieredItems items recipes = unfoldr getNextTieredItems (S.empty, items) 
     r2 = (S.union lowerTiers r1, searchItems S.\\ r1)
     r1c = mapSetToMap (\item -> M.findWithDefault M.empty item allConnections) r1
     r = if S.null searchItems then Nothing else Just (r1c, r2)
+
+
+sortTieredItems ::
+  [ItemConnectionsMap]
+  -> [ItemConnectionsMap]
+sortTieredItems tiers = undefined
+  -- map of existing X positions
+  -- for each tier (first pass)
+    -- set temp x position to be average of x pos of dependencies
+  -- sort tier by temp x pos
+  -- set actual x position by order (center aligned)
