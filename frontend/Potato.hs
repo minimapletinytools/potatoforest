@@ -47,7 +47,7 @@ type ItemMetaMap = Map ItemId Item
 
 -- draw line between two items (itemel1, itemel2)
 
-itemBox :: forall t m a. (MonadWidget t m) => Item -> ItemAttr -> m (ItemMeta t)
+itemBox :: (MonadWidget t m) => Item -> ItemAttr -> m (ItemMeta t)
 itemBox item attr = do
   (modAttrEv, action) <- newTriggerEvent
   dynAttrs <- holdDyn (toAttrMap attr) (modAttrEv)
@@ -60,16 +60,37 @@ itemBox item attr = do
     , im_mouseout_event = domEvent Mouseout e
   }
 
+mapWithIndexM :: (Traversable t, Monad m) => (Int -> a -> m b) -> t a -> m (t b)
+mapWithIndexM f ta = sequence $ snd (mapAccumL (\i a -> (i+1, f i a)) 0 ta)
+
 potatomain :: IO ()
 potatomain = do
   spec <- readFile "testing2.spec"
   let
     Right fb = runForestBlocksParser (pack spec)
-    tiered = generateTieredItems (knownItems fb) (knownRecipes fb)
-  mainWidget $ el "div" $ do
-    el "div" $ text (pack (show tiered))
+    tiered = sortTieredItems $ generateTieredItems (knownItems fb) (knownRecipes fb)
+
+    innerMap :: (MonadWidget t m) => Int -> Int -> (Item, ItemConnections) -> m (ItemMeta t)
+    innerMap tier x (item, _) = itemBox item attrs where
+      pos = (x * 100 + 100, tier * 100 + 100)
+      attrs = ItemAttr { ia_pos = pos }
+
+    outerMap :: (MonadWidget t m) => Int -> ItemConnectionsList -> m ([ItemMeta t])
+    outerMap tier items = mapWithIndexM (innerMap tier) items
+
+  mainWidget $ do
+
+    _ <- mapWithIndexM outerMap tiered
+
+
+
+    --el "div" $ text (pack (show tiered))
     --el "div" $ text (pack spec)
-    metas <- el "ul" $ forM [0..10] $ \x -> itemBox builtin_time (ItemAttr (x*200, x*100))
+
+
+    metas <- el "ul" $ forM [0..10] $ \x -> itemBox builtin_time (ItemAttr (x*50, x*50))
+
+
     el "div" $ text helloPotato
     el "div" $ do
       t <- inputElement $ def
