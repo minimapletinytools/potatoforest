@@ -1,6 +1,11 @@
 module Potato.Forest.Methods (
   helloPotato
   , generateTieredItems
+  , sortTieredItems
+
+  , ItemConnections
+  , ItemConnectionsMap
+  , ItemConnectionsList
 ) where
 
 import           Relude
@@ -18,6 +23,8 @@ helloPotato = "hello potato"
 type ItemConnections = M.Map Item RecipeSet
 -- | maps an Item to its ItemConnections
 type ItemConnectionsMap = M.Map Item ItemConnections
+-- | sorted list variant (for rendering)
+type ItemConnectionsList = [(Item, ItemConnections)]
 
 addRecipeToItemConnections :: ItemConnections -> Recipe -> ItemConnections
 addRecipeToItemConnections itemConns recipe = r where
@@ -60,8 +67,8 @@ generateTieredItems items recipes = unfoldr getNextTieredItems (S.empty, items) 
 
 sortTieredItems ::
   [ItemConnectionsMap]
-  -> [ItemConnectionsMap]
-sortTieredItems tiers = undefined
+  -> [ItemConnectionsList]
+sortTieredItems tiers = map M.toList tiers
   -- map of existing X positions
   -- for each tier (first pass)
     -- set temp x position to be average of x pos of dependencies
