@@ -1,16 +1,21 @@
-{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE RecursiveDo     #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 
 module Potato (
   potatomain
 ) where
 
+import qualified Data.Map              as M
 import           Relude
+import           Relude.Extra.Map      (lookup)
 
 import           Potato.Forest.Methods
 import           Potato.Forest.Parser
 import           Potato.Forest.Types
 import           Reflex.Dom
+
+import           Data.FileEmbed
 
 
 import           Data.Text             (pack, unpack)
@@ -33,24 +38,22 @@ data ItemAttr = ItemAttr {
 toAttrMap :: ItemAttr -> Map Text Text
 toAttrMap ia = fromList [
   ("style", style)
+  , ("class", "tech")
   ] where
     style =
       "left:" <> (show . fst) (ia_pos ia) <> "px;"
       <> "top:" <> (show . snd) (ia_pos ia) <> "px;"
-      <> "position: absolute;"
-      <> "z-index: 1;"
-      <> "width: 80px;"
-      <> "cursor: pointer;"
-      <> "border-color: green"
 
-type ItemMetaMap = Map ItemId Item
+
+type ItemMetaMap t = Map ItemId (ItemMeta t)
 
 -- draw line between two items (itemel1, itemel2)
 
 itemBox :: (MonadWidget t m) => Item -> ItemAttr -> m (ItemMeta t)
 itemBox item attr = do
   (modAttrEv, action) <- newTriggerEvent
-  dynAttrs <- holdDyn (toAttrMap attr) (modAttrEv)
+  -- modAttrEv produces map of new attributes which we union with previous ones
+  dynAttrs <- foldDyn M.union (toAttrMap attr) modAttrEv
   (e, _) <- elDynAttr' "div" dynAttrs $ text (unItemId (itemId item))
   return $ ItemMeta {
     im_item = item
@@ -65,8 +68,10 @@ mapWithIndexM f ta = sequence $ snd (mapAccumL (\i a -> (i+1, f i a)) 0 ta)
 
 potatomain :: IO ()
 potatomain = do
-  spec <- readFile "testing2.spec"
   let
+    css = $(embedStringFile "potato.css")
+    spec = $(embedStringFile "testing2.spec")
+
     Right fb = runForestBlocksParser (pack spec)
     tiered = sortTieredItems $ generateTieredItems (knownItems fb) (knownRecipes fb)
 
@@ -78,22 +83,24 @@ potatomain = do
     outerMap :: (MonadWidget t m) => Int -> ItemConnectionsList -> m ([ItemMeta t])
     outerMap tier items = mapWithIndexM (innerMap tier) items
 
-  mainWidget $ do
+  mainWidgetWithCss css $ do
+  --mainWidget $ do
+    itemMetas' <- mapWithIndexM outerMap tiered
+    let
+      itemMetas :: [ItemMeta (SpiderTimeline Global)]
+      itemMetas = join itemMetas'
+      itemMetaMap = M.fromList $ map (\im -> (itemId (im_item im), im)) itemMetas
 
-    _ <- mapWithIndexM outerMap tiered
+      -- for now, we just highlight ourself
+      makeTriggerClick :: ItemId -> IO ()
+      makeTriggerClick iid = case lookup iid itemMetaMap of
+        Nothing -> error "item not found"
+        Just im -> (im_trigger_action im) ("class" =: "tech selected")
 
+      simpleTrigger :: ItemMeta t -> IO()
+      simpleTrigger im = do
+        putStrLn $ "you clicked " ++ show (im_item im)
+        (im_trigger_action im) ("class" =: "tech selected")
 
-
-    --el "div" $ text (pack (show tiered))
-    --el "div" $ text (pack spec)
-
-
-    metas <- el "ul" $ forM [0..10] $ \x -> itemBox builtin_time (ItemAttr (x*50, x*50))
-
-
-    el "div" $ text helloPotato
-    el "div" $ do
-      t <- inputElement $ def
-        & inputElementConfig_initialValue .~ "0"
-        & inputElementConfig_elementConfig . elementConfig_initialAttributes .~ ("type" =: "number")
-      dynText $ _inputElement_value t
+    forM_ itemMetas (\im -> performEvent ((\_ -> liftIO $ simpleTrigger im) <$> im_click_event im))
+    return ()

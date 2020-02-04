@@ -5,8 +5,6 @@ module Main where
 import           Relude            hiding (Op)
 
 import           Control.Monad.Fix (MonadFix)
-import           Data.Map          (Map)
-import qualified Data.Map          as Map
 import           Data.Text         (Text, pack, unpack)
 import           Reflex
 import           Reflex.Dom
@@ -49,7 +47,7 @@ numberInput = do
 data Op = Plus | Minus | Times | Divide deriving (Eq, Ord)
 
 ops :: Map Op Text
-ops = Map.fromList [(Plus, "+"), (Minus, "-"), (Times, "*"), (Divide, "/")]
+ops = fromList [(Plus, "+"), (Minus, "-"), (Times, "*"), (Divide, "/")]
 
 runOp :: Fractional a => Op -> a -> a -> a
 runOp s = case s of

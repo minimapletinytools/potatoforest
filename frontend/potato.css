@@ -1,0 +1,31 @@
+@charset "UTF-8";
+html { margin:0; padding:0 }
+body { min-width:1660px; min-height:4520px; margin:0; padding:0; background-color:#000; font-family: Arial, Helvetica, sans-serif; color:#fff; }
+a { color:#fff; }
+.tech { position:absolute; z-index:1; width:81px; border-radius:5px; color:#aaa; font-size:14px; font-weight:bold; background: #508240; cursor:pointer; text-align:center; line-height:1px; }
+.pic { width:64px; height:64px; padding:3px; }
+.items { text-align:left; margin-left: 1.5px }
+.path { position:absolute; background-color:#aaa; height:2px; }
+.dark { opacity: 0.0 }
+.blurred { opacity:0.3 }
+.blurred2 { opacity:0.0 }
+.selected { box-shadow: 0 0 10px 5px #fff; z-index:4 }
+.selected2 { z-index:3; opacity:1 !important; }
+.path.selected2 { background-color:#fff; z-index:2; }
+.item, .bonus, .hoveritem { margin:0 1.5px 3px 1.5px; width:32px; height:32px; background-color: #a8a8a8; border:2px solid #a8a8a8; }
+.item.selected { background-color:white; border-color:white; }
+.hoveritem { display:inline-block; background-repeat:no-repeat; vertical-align:middle; text-align:right; font-size:15px; font-weight:bold; line-height:52px; text-shadow: -1px -1px 0px #000, 1px 1px 0px #000, 1px -1px 0px #000, -1px 1px 0px #000; margin-right:4px; }
+#tooltip { z-index:5; position:absolute; display:none; white-space:nowrap; background-color:rgba(70,70,70,0.93); padding:8px; font-size:16px; }
+#tooltip2 { z-index:5; position:absolute; display:none; width:250px; }
+#tooltip2 > div { background-color:rgba(70,70,70,0.93); padding:8px; font-size:16px; display:inline-block; }
+.tiplist, .tip2, .tip4 { height:41px; line-height:41px; }
+.tip1 { padding-bottom:5px; font-weight:bold; }
+.L1 { background: #944848 }
+.L2 { }
+.L3 { background: #465461 }
+.L4 { background: #45828c }
+.L5 { background: #6e4894 }
+.L6 { background: #8c803f }
+.L7 { background: #8c8c8c }
+.L34 { background: repeating-linear-gradient(135deg, #465461, #465461 27px, #45828c 27px, #45828c 54px);}
+.L56 { background: repeating-linear-gradient(135deg, #6e4894, #6e4894 27px, #8c803f 27px, #8c803f 54px);}
