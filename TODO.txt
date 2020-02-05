@@ -9,7 +9,9 @@
   -readfile (is it even possible?)
     - or upload file?
   -include image to render
-  -maybe create text box? 
+  -maybe create text box?
+-add helper methods to recurse up a tree and recurse down a tree
+  - you can probably do applicative to handle Nothing case or something like that.
 
 ::OTHER TODO::
 -add parsing for infinity keyword

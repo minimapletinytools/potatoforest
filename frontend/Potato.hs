@@ -146,30 +146,35 @@ mapWithIndexM f ta = sequence $ snd (mapAccumL (\i a -> (i+1, f i a)) 0 ta)
 mapKeysM :: (Monad m) => M.Map k a -> (k -> m b) -> m [b]
 mapKeysM m f = M.foldrWithKey (\k _ acc -> (:) <$> f k <*> acc) (return []) m
 
+
 potatomain :: IO ()
 potatomain = do
   let
     css = $(embedStringFile "potato.css")
     spec = $(embedStringFile "testing2.spec")
 
+    -- parse potato
     Right fb = runForestBlocksParser (T.pack spec)
     tiered' = generateTieredItems (knownItems fb) (knownRecipes fb)
     allConnections = foldr M.union M.empty tiered'
     tiered = sortTieredItems $ tiered'
 
+    -- | helper method for rendering items
     innerMap :: (MonadWidget t m) => Int -> Int -> (Item, ItemConnections) -> m (ItemMeta t)
     innerMap tier x (item, _) = itemBox item attrs where
       pos = (x * 100 + 100, tier * 100 + 100)
       attrs = ItemAttr { ia_pos = pos }
 
+    -- | helper method for rendering items
     outerMap :: (MonadWidget t m) => Int -> ItemConnectionsList -> m ([ItemMeta t])
     outerMap tier items = mapWithIndexM (innerMap tier) items
 
     -- TODO add actions for highlighting
+    -- | helper method for rendering lines
     lineMap :: (MonadWidget t m) =>
       ItemMetaMap t -- ^ all items
       -> ItemConnectionsMap -- ^ map to look up ItemConnections
-      -> ItemMeta t -- ^ item we want to draw all lines fo
+      -> ItemMeta t -- ^ item we want to draw all lines from
       -> m ()
     lineMap imm icm im = do
       let
@@ -181,36 +186,86 @@ potatomain = do
           maybeEndItemMeta = lookup (itemId item) imm
         case maybeEndItemMeta of
           Nothing          -> blank
-          Just endItemMeta -> trace (show (itemId item) ++ ": " ++ show pos' ++ " " ++ show (ia_pos . im_attr $ endItemMeta)) $ line pos' (ia_pos . im_attr $ endItemMeta)
+          Just endItemMeta -> line pos' (ia_pos . im_attr $ endItemMeta)
       return ()
 
-  mainWidgetWithCss css $ do
+    -- main widget
+    potatoWidget :: forall t m. (MonadWidget t m) => m ()
+    potatoWidget = mdo
+      -- variable to track current selection (clickItemEv defined later on)
+      currentSelection :: Behavior t (Maybe (ItemMeta t)) <- hold Nothing clickItemEv
+
+      -- generate item boxes
+      itemMetas' <- mapWithIndexM outerMap tiered
+      let
+        itemMetas :: [ItemMeta t]
+        itemMetas = join itemMetas'
+        itemMetaMap :: Map ItemId (ItemMeta t)
+        itemMetaMap = M.fromList $ map (\im -> (itemId (im_item im), im)) itemMetas
+
+        -- | recursively selects an items and all items it depends on
+        selectRecursive ::
+          ItemMetaMap t -- ^ all items
+          -> ItemConnectionsMap  -- ^ map to look up ItemConnections
+          -> ItemMeta t -- ^ the selected item in question
+          -> IO ()
+        selectRecursive imm icm im = do
+          let
+            connections = M.findWithDefault M.empty (im_item im) icm
+          mapKeysM connections $ \item -> do
+            let
+              maybeEndItemMeta = lookup (itemId item) imm
+            case maybeEndItemMeta of
+              Nothing          -> blank
+              Just endItemMeta -> selectRecursive imm icm endItemMeta
+          im_trigger_action im ("class" =: "tech selected")
+
+        unselectRecursive ::
+          ItemMetaMap t -- ^ all items
+          -> ItemConnectionsMap  -- ^ map to look up ItemConnections
+          -> ItemMeta t -- ^ the selected item in question
+          -> IO ()
+        unselectRecursive imm icm im = do
+          let
+            connections = M.findWithDefault M.empty (im_item im) icm
+          mapKeysM connections $ \item -> do
+            let
+              maybeEndItemMeta = lookup (itemId item) imm
+            case maybeEndItemMeta of
+              Nothing          -> blank
+              Just endItemMeta -> unselectRecursive imm icm endItemMeta
+          im_trigger_action im ("class" =: "tech")
+
+        -- for now, we just highlight ourself
+        simpleTrigger :: ItemMeta t -> IO ()
+        simpleTrigger im = do
+          putStrLn $ "you clicked " ++ show (im_item im)
+          im_trigger_action im ("class" =: "tech selected")
+
+        selectAction :: Maybe (ItemMeta t) -> ItemMeta t -> IO ()
+        selectAction prev im = do
+          -- first unselect previous
+          case prev of
+            Nothing  -> return ()
+            Just pim -> trace ("unselecting: " <> show (im_item pim)) $ unselectRecursive itemMetaMap allConnections pim
+          -- then select current
+          trace ("selecting: " <> show (im_item im)) $ selectRecursive itemMetaMap allConnections im
+
+      -- set up on click triggers
+      --forM_ itemMetas (\im -> performEvent ((\_ -> liftIO $ simpleTrigger im) <$> im_click_event im))
+      clickItemEvs_ <- forM itemMetas (\im -> performEvent
+        ((\prev -> liftIO $ selectAction prev im >> return im) <$> tag currentSelection (im_click_event im)))
+
+      let
+        -- create an event that fires after any of the actions above is performed
+        clickItemEv :: Event t (Maybe (ItemMeta t)) = Just <$> leftmost clickItemEvs_
+
+      -- draw lines
+      forM_ itemMetas (lineMap itemMetaMap allConnections)
+
+      return ()
+
+
+  -- actually render stuff now
+  mainWidgetWithCss css $ do potatoWidget
   --mainWidget $ do
-    -- generate item boxes
-    itemMetas' <- mapWithIndexM outerMap tiered
-    let
-      itemMetas :: [ItemMeta (SpiderTimeline Global)]
-      itemMetas = join itemMetas'
-      itemMetaMap = M.fromList $ map (\im -> (itemId (im_item im), im)) itemMetas
-
-
-      {-
-      makeTriggerClick :: ItemId -> IO ()
-      makeTriggerClick iid = case lookup iid itemMetaMap of
-        Nothing -> error "item not found"
-        Just im -> (im_trigger_action im) ("class" =: "tech selected")
-      -}
-
-      -- for now, we just highlight ourself
-      simpleTrigger :: ItemMeta t -> IO()
-      simpleTrigger im = do
-        putStrLn $ "you clicked " ++ show (im_item im)
-        (im_trigger_action im) ("class" =: "tech selected")
-
-    -- set up on click triggers
-    forM_ itemMetas (\im -> performEvent ((\_ -> liftIO $ simpleTrigger im) <$> im_click_event im))
-
-    -- draw lines
-    forM_ itemMetas (lineMap itemMetaMap allConnections)
-
-    return ()
