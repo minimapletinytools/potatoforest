@@ -1,6 +1,7 @@
 
 module Potato.Forest.Internal.Containers (
   mapSetToMap
+  , map_keys_forM
   , lookup
 ) where
 
@@ -18,6 +19,10 @@ mapSetToMap _ S.Tip                = M.Tip
 mapSetToMap f (S.Bin sz elt ls rs) = M.Bin sz elt (f elt) (mapSetToMap f ls) (mapSetToMap f rs)
 
 
+-- something like this instead, but need to flip args to define functor instance
+--newtype KeyMap a b = KeyMap { unKeyMap :: M.Map a b }
+map_keys_forM :: (Monad m) => M.Map k a -> (k -> m b) -> m [b]
+map_keys_forM m f = M.foldrWithKey (\k _ acc -> (:) <$> f k <*> acc) (return []) m
 
 -- Notably, the method Relude.Extra.Map.lookup just returns the argument, not the item contained in the set
 lookup :: Ord a => a -> S.Set a -> Maybe a
