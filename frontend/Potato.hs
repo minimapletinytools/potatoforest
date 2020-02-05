@@ -23,22 +23,15 @@ import           Data.FileEmbed
 
 import qualified Data.Text             as T
 
--- build a map of item to its event trigger function thingy, location, item info etc...
 
 type Pos = (Int, Int)
-data ItemMeta t = ItemMeta {
-  im_item              :: Item
-  , im_attr            :: ItemAttr
-  , im_trigger_action  :: Map Text Text -> IO()
-  , im_click_event     :: Event t ()
-  , im_mouseover_event :: Event t ()
-  , im_mouseout_event  :: Event t ()
-}
 
+-- | item attribute data
 data ItemAttr = ItemAttr {
   ia_pos :: Pos
 }
 
+-- | convert ItemAttr to attributes understood by reflex
 toAttrMap :: ItemAttr -> Map Text Text
 toAttrMap ia = fromList [
     ("style", style)
@@ -48,10 +41,25 @@ toAttrMap ia = fromList [
       "left:" <> (show . fst) (ia_pos ia) <> "px;"
       <> "top:" <> (show . snd) (ia_pos ia) <> "px;"
 
+-- | reflex item meta data
+data ItemMeta t = ItemMeta {
+  im_item              :: Item
+  , im_attr            :: ItemAttr
+  , im_trigger_action  :: Map Text Text -> IO()
+  , im_click_event     :: Event t ()
+  , im_mouseover_event :: Event t ()
+  , im_mouseout_event  :: Event t ()
+}
+
+-- | map of items to their metadata
+type ItemMetaMap t = Map ItemId (ItemMeta t)
+
+-- | these represent key value pairs of the "style" property of a tag
 type Style = Map Text Text
 
-fromStyle :: Style -> (Text,Text)
-fromStyle style = ("style", style') where
+-- | convert style into an attribute
+styleToAttr :: Style -> (Text,Text)
+styleToAttr style = ("style", style') where
   style' = T.intercalate ";" $ M.foldrWithKey (\k s (acc :: [Text]) -> (k <> ":" <> s) : acc ) [] style
 
 {- fixme
@@ -69,26 +77,17 @@ toStyle style = maybeStyle where
       return (r1, r2)
 -}
 
-type ItemMetaMap t = Map ItemId (ItemMeta t)
-
--- draw line between two items (itemel1, itemel2)
--- thx https://github.com/kouky/line-css.js/blob/master/src/line-css.coffee
-line :: (MonadWidget t m) => Pos -> Pos -> m ()
-line a b = do
-  let
-    attrMap = M.fromList [
-         fromStyle style
-        , ("class", "path")
-      ]
-    style = M.fromList [
-        ("left",show x <> "px")
-        , ("top", show y <> "px")
-        , ("width", show (round hypotenuse) <> "px")
-        , ("height", show stroke <> "px")
-        , ("transform", rot)
-        , ("-ms-transform", rot)
-        , ("-webkit-transform", rot)
-      ]
+-- | generates style for a line from a to b
+makeLineStyle :: Pos -> Pos -> Style
+makeLineStyle a b = M.fromList [
+    ("left",show x <> "px")
+    , ("top", show y <> "px")
+    , ("width", show (round hypotenuse) <> "px")
+    , ("height", show stroke <> "px")
+    , ("transform", rot)
+    , ("-ms-transform", rot)
+    , ("-webkit-transform", rot)
+  ] where
     stroke = 2
     ax :: Float
     ax = fromIntegral (fst a)
@@ -103,21 +102,29 @@ line a b = do
     offsety = (- opposite / 2) - stroke / 2
     y = round $ if by <= ay then ay + offsety else by + offsety
     --rotVal = atan2 opposite adjacent
-
     radians = atan (opposite / adjacent)
     rotVal
       | bx < ax && by < ay = radians
       | bx > ax && by > ay = radians
       | adjacent == 0 = pi / 2
       | otherwise = - radians
-
     rot = "rotate(" <> (T.pack $ (showFFloat (Just 3) rotVal "")) <> "rad)"
+
+-- | draw line between two items (itemel1, itemel2)
+-- thx https://github.com/kouky/line-css.js/blob/master/src/line-css.coffee
+line :: (MonadWidget t m) => Pos -> Pos -> m ()
+line a b = do
+  let
+    attrMap = M.fromList [
+         styleToAttr (makeLineStyle a b)
+        , ("class", "path")
+      ]
   -- TODO triggers for highlighting
   --(modAttrEv, action) <- newTriggerEvent
   (e,_) <- elAttr' "div" attrMap blank
   return ()
 
-
+-- | creates a widget for an item and returns its ItemMeta
 itemBox :: (MonadWidget t m) => Item -> ItemAttr -> m (ItemMeta t)
 itemBox item attr = do
   (modAttrEv, action) <- newTriggerEvent
@@ -149,7 +156,6 @@ potatomain = do
     tiered' = generateTieredItems (knownItems fb) (knownRecipes fb)
     allConnections = foldr M.union M.empty tiered'
     tiered = sortTieredItems $ tiered'
-
 
     innerMap :: (MonadWidget t m) => Int -> Int -> (Item, ItemConnections) -> m (ItemMeta t)
     innerMap tier x (item, _) = itemBox item attrs where
@@ -187,12 +193,15 @@ potatomain = do
       itemMetas = join itemMetas'
       itemMetaMap = M.fromList $ map (\im -> (itemId (im_item im), im)) itemMetas
 
-      -- for now, we just highlight ourself
+
+      {-
       makeTriggerClick :: ItemId -> IO ()
       makeTriggerClick iid = case lookup iid itemMetaMap of
         Nothing -> error "item not found"
         Just im -> (im_trigger_action im) ("class" =: "tech selected")
+      -}
 
+      -- for now, we just highlight ourself
       simpleTrigger :: ItemMeta t -> IO()
       simpleTrigger im = do
         putStrLn $ "you clicked " ++ show (im_item im)
@@ -203,4 +212,5 @@ potatomain = do
 
     -- draw lines
     forM_ itemMetas (lineMap itemMetaMap allConnections)
+
     return ()

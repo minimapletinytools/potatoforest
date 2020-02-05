@@ -1,5 +1,15 @@
 ::TODO TMRW::
--finish required tasks in frontend
+-get basic mouseover nonsense working
+  -make sure the mouseover box does not cover so you can still click to highlight
+-get boxes to draw to correct size
+-get lines to point to correct part of box
+-click should unselect
+-click should highlight all dependencies recursively
+-figure out how to
+  -readfile (is it even possible?)
+    - or upload file?
+  -include image to render
+  -maybe create text box? 
 
 ::OTHER TODO::
 -add parsing for infinity keyword
@@ -21,6 +31,7 @@
   -figure out how to derive Default instance rather than defining your own
 
 ::DONE::
+DONE-finish required tasks in frontend
 DONE-add tests for untested stuff in Types.hs
 DONE-slight cleanup in parser tests
 DONE-try out basic reflex stuff
