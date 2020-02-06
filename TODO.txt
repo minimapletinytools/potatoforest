@@ -1,9 +1,9 @@
 ::TODO TMRW::
 -get basic mouseover nonsense working
   -make sure the mouseover box does not cover so you can still click to highlight
--get boxes to draw to correct size
--get lines to point to correct part of box
--click should unselect
+DONE-get boxes to draw to correct size
+DONE-get lines to point to correct part of box
+DONE-click should unselect
 -click should highlight all dependencies recursively
 -figure out how to
   -readfile (is it even possible?)
@@ -12,6 +12,9 @@
   -maybe create text box?
 -add helper methods to recurse up a tree and recurse down a tree
   - you can probably do applicative to handle Nothing case or something like that.
+
+-do proper item positioning
+  -average of parent position ,then sorted to fit from left to right
 
 ::OTHER TODO::
 -add parsing for infinity keyword
