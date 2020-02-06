@@ -16,7 +16,7 @@ a { color:#fff; }
 .item.selected { background-color:white; border-color:white; }
 .hoveritem { display:inline-block; background-repeat:no-repeat; vertical-align:middle; text-align:right; font-size:15px; font-weight:bold; line-height:52px; text-shadow: -1px -1px 0px #000, 1px 1px 0px #000, 1px -1px 0px #000, -1px 1px 0px #000; margin-right:4px; }
 #tooltip { z-index:5; position:absolute; display:none; white-space:nowrap; background-color:rgba(70,70,70,0.93); padding:8px; font-size:16px; }
-#tooltip2 { z-index:5; position:absolute; width:250px; }
+#tooltip2 { z-index:5; position:absolute; width:250px; background-color: rgba(70,70,70,0.93);}
 #tooltip2 > div { background-color:rgba(70,70,70,0.93); padding:8px; font-size:16px; display:inline-block; }
 .tiplist, .tip2, .tip4 { height:41px; line-height:41px; }
 .tip1 { padding-bottom:5px; font-weight:bold; }

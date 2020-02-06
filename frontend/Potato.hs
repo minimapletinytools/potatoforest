@@ -13,6 +13,9 @@ import           Relude
 import           Relude.Extra.Map      (lookup)
 import qualified Relude.Unsafe         as RU
 
+import           Helper
+import           Widgets
+
 import           Potato.Forest.Methods
 import           Potato.Forest.Parser
 import           Potato.Forest.Types
@@ -22,140 +25,6 @@ import           Data.FileEmbed
 
 
 import qualified Data.Text             as T
-
--- constants
-
--- | size of an item box, make sure this matches CSS
-itemSize :: Pos
-itemSize = (80,100)
-
-offsetToCenter :: Pos -> Pos
-offsetToCenter (a,b) = (a + fst itemSize `div` 2, b + snd itemSize `div` 2)
-
-type Pos = (Int, Int)
-
-posToStyle :: Pos -> Style
-posToStyle (a,b) = M.fromList [("left", show a <> "px"),("top", show b <> "px")]
-
--- | item attribute data
-data ItemAttr = ItemAttr {
-  ia_pos :: Pos
-}
-
--- | convert ItemAttr to attributes understood by reflex
-toAttrMap :: ItemAttr -> Map Text Text
-toAttrMap ia = fromList [
-    ("style", style)
-    , ("class", "tech")
-  ] where
-    style =
-      "left:" <> (show . fst) (ia_pos ia) <> "px;"
-      <> "top:" <> (show . snd) (ia_pos ia) <> "px;"
-
--- | reflex item meta data
-data ItemMeta t = ItemMeta {
-  im_item              :: Item
-  , im_attr            :: ItemAttr
-  , im_trigger_action  :: Map Text Text -> IO()
-  , im_click_event     :: Event t ()
-  , im_mouseover_event :: Event t ()
-  , im_mouseout_event  :: Event t ()
-}
-
--- | map of items to their metadata
-type ItemMetaMap t = Map ItemId (ItemMeta t)
-
--- | these represent key value pairs of the "style" property of a tag
-type Style = Map Text Text
-
--- | convert style into an attribute
-styleToAttr :: Style -> (Text,Text)
-styleToAttr style = ("style", style') where
-  style' = T.intercalate ";" $ M.foldrWithKey (\k s (acc :: [Text]) -> (k <> ":" <> s) : acc ) [] style
-
-{- fixme
-toStyle :: (Text, Text) -> Maybe Style
-toStyle style = maybeStyle where
-  styles = map recover (T.splitOn ";" style)
-  maybeStyle = case any isNothing style of
-    True  -> Nothing
-    False -> Just $ M.fromList (catMaybes styles)
-  recover s = r where
-    s' = T.splitOn ":" s
-    r = do
-      r1 <- s' !!? 0
-      r2 <- s' !!? 1
-      return (r1, r2)
--}
-
--- | generates style for a line from a to b
-makeLineStyle :: Pos -> Pos -> Style
-makeLineStyle a b = M.fromList [
-    ("left",show x <> "px")
-    , ("top", show y <> "px")
-    , ("width", show (round hypotenuse) <> "px")
-    , ("height", show stroke <> "px")
-    , ("transform", rot)
-    , ("-ms-transform", rot)
-    , ("-webkit-transform", rot)
-  ] where
-    stroke = 2
-    ax :: Float
-    ax = fromIntegral (fst a)
-    ay = fromIntegral (snd a)
-    bx = fromIntegral (fst b)
-    by = fromIntegral (snd b)
-    adjacent = abs (ax - bx)
-    opposite = abs (ay - by)
-    hypotenuse = sqrt (adjacent*adjacent + opposite*opposite)
-    offsetx = abs $ (hypotenuse - adjacent) / 2
-    x = round $ if bx <= ax then bx - offsetx else ax - offsetx
-    offsety = (- opposite / 2) - stroke / 2
-    y = round $ if by <= ay then ay + offsety else by + offsety
-    --rotVal = atan2 opposite adjacent
-    radians = atan (opposite / adjacent)
-    rotVal
-      | bx < ax && by < ay = radians
-      | bx > ax && by > ay = radians
-      | adjacent == 0 = pi / 2
-      | otherwise = - radians
-    rot = "rotate(" <> (T.pack $ (showFFloat (Just 3) rotVal "")) <> "rad)"
-
--- | draw line between two items (itemel1, itemel2)
--- thx https://github.com/kouky/line-css.js/blob/master/src/line-css.coffee
-line :: (MonadWidget t m) => Pos -> Pos -> m ()
-line a b = do
-  let
-    attrMap = M.fromList [
-         styleToAttr (makeLineStyle a b)
-        , ("class", "path")
-      ]
-  -- TODO triggers for highlighting
-  --(modAttrEv, action) <- newTriggerEvent
-  (e,_) <- elAttr' "div" attrMap blank
-  return ()
-
--- | creates a widget for an item and returns its ItemMeta
-itemBox :: (MonadWidget t m) => Item -> ItemAttr -> m (ItemMeta t)
-itemBox item attr = do
-  (modAttrEv, action) <- newTriggerEvent
-  -- modAttrEv produces map of new attributes which we union with previous ones
-  dynAttrs <- foldDyn M.union (toAttrMap attr) modAttrEv
-  (e, _) <- elDynAttr' "div" dynAttrs $ el "p" $ text (unItemId (itemId item))
-  return $ ItemMeta {
-    im_item = item
-    , im_attr = attr
-    , im_trigger_action = action
-    , im_click_event = domEvent Click e
-    , im_mouseover_event = domEvent Mouseover e
-    , im_mouseout_event = domEvent Mouseout e
-  }
-
-mapWithIndexM :: (Traversable t, Monad m) => (Int -> a -> m b) -> t a -> m (t b)
-mapWithIndexM f ta = sequence $ snd (mapAccumL (\i a -> (i+1, f i a)) 0 ta)
-
-mapKeysM :: (Monad m) => M.Map k a -> (k -> m b) -> m [b]
-mapKeysM m f = M.foldrWithKey (\k _ acc -> (:) <$> f k <*> acc) (return []) m
 
 
 potatomain :: IO ()
@@ -197,7 +66,7 @@ potatomain = do
           maybeEndItemMeta = lookup (itemId item) imm
         case maybeEndItemMeta of
           Nothing          -> blank
-          Just endItemMeta -> line (offsetToCenter pos') (offsetToCenter . ia_pos . im_attr $ endItemMeta)
+          Just endItemMeta -> line (offsetPosToItemBoxCenter pos') (offsetPosToItemBoxCenter . ia_pos . im_attr $ endItemMeta)
       return ()
 
     -- main widget
@@ -270,24 +139,17 @@ potatomain = do
           -- then select current
           trace ("selecting: " <> show (im_item im)) $ selectRecursive itemMetaMap allConnections im
 
-        makeSimple :: (MonadWidget t m) => (v -> m a) -> Dynamic t v -> m a
-        makeSimple f d = (sample . current $ d) >>= f
-
-        funnyHover im' = do
-          im <- sample . current $ im'
-          liftIO $ print $ "FUNNY: " ++ show (im_item im)
-          return ()
-
         -- TODO finish
         hoverWidget :: (MonadWidget t m)
           => ItemMeta t -- ^ the item we are hovering over
           -> m ()
         hoverWidget im = do
           let
-            attrs = M.fromList [("id", "tooltip2"), styleToAttr (posToStyle (ia_pos . im_attr $ im))]
+            attrs = M.fromList [("id", "tooltip2"), styleToAttr (posToStyle . offsetPosToItemBoxCenter $ (ia_pos . im_attr $ im))]
           liftIO $ print $ "HOVERING: " ++ show (im_item im)
           elAttr "div" attrs $ el "p" (text "this is a tooltip")
 
+        -- helper, TBH only needed to disambiguate the type var t
         hoverWidgetEv :: (MonadWidget t m)
           => Event t (Maybe (ItemMeta t)) -- ^ the item we are hovering over
           -> Event t (m ())
@@ -300,11 +162,6 @@ potatomain = do
       -- variable to track current selection (clickItemEv defined later on)
       currentSelection :: Behavior t (Maybe (ItemMeta t)) <- hold Nothing clickItemEv
 
-      -- mouse over widget
-      -- hoverDyn :: Dynamic t [ItemMeta t] <- holdDyn [] hoverEv
-      -- _ <- simpleList hoverDyn (makeSimple hoverWidget)
-      -- _ <- simpleList hoverDyn funnyHover
-
       -- set up on click triggers
       --forM_ itemMetas (\im -> performEvent ((\_ -> liftIO $ simpleTrigger im) <$> im_click_event im))
       clickItemEvs_ <- forM itemMetas (\im -> performEvent
@@ -312,17 +169,13 @@ potatomain = do
 
       let
         -- create an event when we mouse over any item
-        --hoverEv :: Event t [ItemMeta t] = leftmost $ map (\im -> fmap (const [im]) (im_mouseover_event im)) itemMetas
         hoverEv :: Event t (Maybe (ItemMeta t)) = leftmost $ map (\im -> fmap (const (Just im)) (im_mouseover_event im)) itemMetas
 
         -- create an event that fires after any of the actions above is performed
         clickItemEv :: Event t (Maybe (ItemMeta t)) = Just <$> leftmost clickItemEvs_
 
-      -- debugging hoverEv
-      -- performEvent $ (liftIO . print . im_item . RU.head) <$> hoverEv
-
-      -- more debugging
-      somed :: Dynamic t () <- widgetHold blank $ hoverWidgetEv hoverEv
+      -- set up hover widget events
+      widgetHold blank $ hoverWidgetEv hoverEv
 
       -- draw lines
       forM_ itemMetas (lineMap itemMetaMap allConnections)
