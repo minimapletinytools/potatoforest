@@ -7,11 +7,8 @@ module Potato (
 ) where
 
 import qualified Data.Map              as M
-import           Numeric               (showFFloat)
-import           Prelude               (atan2)
 import           Relude
 import           Relude.Extra.Map      (lookup)
-import qualified Relude.Unsafe         as RU
 
 import           Helper
 import           Widgets
@@ -36,8 +33,20 @@ potatomain = do
     -- parse potato
     Right fb = runForestBlocksParser (T.pack spec)
     tiered' = generateTieredItems (knownItems fb) (knownRecipes fb)
+
+    allConnections :: ItemConnectionsMap
     allConnections = foldr M.union M.empty tiered'
+
+    tiered :: [ItemConnectionsList]
     tiered = sortTieredItems $ tiered'
+
+    --lineConnections :: Map ItemId LineMeta
+
+    --withItemMeta :: (MonadReader r m) => ItemId -> m a -> (ItemMeta t -> m a) -> m a
+    withItemMeta :: ItemMetaMap t -> ItemId -> a -> (ItemMeta t -> a) -> a
+    withItemMeta imm iid n jf = case lookup iid imm of
+      Nothing -> n
+      Just i  -> jf i
 
     -- | helper method for rendering items
     innerMap :: (MonadWidget t m) => Int -> Int -> (Item, ItemConnections) -> m (ItemMeta t)
@@ -46,7 +55,7 @@ potatomain = do
       attrs = ItemAttr { ia_pos = pos }
 
     -- | helper method for rendering items
-    outerMap :: (MonadWidget t m) => Int -> ItemConnectionsList -> m ([ItemMeta t])
+    outerMap :: (MonadWidget t m) => Int -> ItemConnectionsList -> m [ItemMeta t]
     outerMap tier items = mapWithIndexM (innerMap tier) items
 
     -- TODO add actions for highlighting
@@ -59,14 +68,9 @@ potatomain = do
     lineMap imm icm im = do
       let
         pos' = ia_pos . im_attr $ im
-        connections :: ItemConnections
         connections = M.findWithDefault M.empty (im_item im) icm
-      mapKeysM connections $ \item -> do
-        let
-          maybeEndItemMeta = lookup (itemId item) imm
-        case maybeEndItemMeta of
-          Nothing          -> blank
-          Just endItemMeta -> line (offsetPosToItemBoxCenter pos') (offsetPosToItemBoxCenter . ia_pos . im_attr $ endItemMeta)
+      mapKeysM connections $ \item -> withItemMeta imm (itemId item) blank $ \eim ->
+        line (offsetPosToItemBoxCenter pos') (offsetPosToItemBoxCenter . ia_pos . im_attr $ eim)
       return ()
 
     -- main widget
@@ -85,12 +89,6 @@ potatomain = do
         itemMetaMap :: Map ItemId (ItemMeta t)
         itemMetaMap = M.fromList $ map (\im -> (itemId (im_item im), im)) itemMetas
 
-        --
-        withItemMeta :: ItemId -> a -> (ItemMeta t -> a) -> a
-        withItemMeta iid n jf = case lookup iid itemMetaMap of
-          Nothing -> n
-          Just i  -> jf i
-
         -- | recursively selects an items and all items it depends on
         selectRecursive ::
           ItemMetaMap t -- ^ all items
@@ -98,12 +96,11 @@ potatomain = do
           -> ItemMeta t -- ^ the selected item in question
           -> IO ()
         selectRecursive imm icm im = do
-          let
-            connections = M.findWithDefault M.empty (im_item im) icm
-          mapKeysM connections $ \item -> do
-            let
-              maybeEndItemMeta = lookup (itemId item) imm
-            withItemMeta (itemId item) blank (selectRecursive imm icm)
+          -- recursively select over all connections
+          let connections = M.findWithDefault M.empty (im_item im) icm
+          mapKeysM connections $ \item ->
+            withItemMeta imm (itemId item) blank (selectRecursive imm icm)
+          -- select the current item
           im_trigger_action im ("class" =: "tech selected")
 
         -- recursively unselects an items and all items it depends on
@@ -113,14 +110,11 @@ potatomain = do
           -> ItemMeta t -- ^ the selected item in question
           -> IO ()
         unselectRecursive imm icm im = do
-          let
-            connections = M.findWithDefault M.empty (im_item im) icm
-          mapKeysM connections $ \item -> do
-            let
-              maybeEndItemMeta = lookup (itemId item) imm
-            case maybeEndItemMeta of
-              Nothing          -> blank
-              Just endItemMeta -> unselectRecursive imm icm endItemMeta
+          -- recursively unselect over all connections
+          let connections = M.findWithDefault M.empty (im_item im) icm
+          mapKeysM connections $ \item ->
+            withItemMeta imm (itemId item) blank (unselectRecursive imm icm)
+          -- unselect the current item
           im_trigger_action im ("class" =: "tech")
 
         -- for now, we just highlight ourself
