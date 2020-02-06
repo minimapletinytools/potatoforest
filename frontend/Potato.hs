@@ -287,15 +287,23 @@ potatomain = do
             attrs = M.fromList [("id", "tooltip2"), styleToAttr (posToStyle (ia_pos . im_attr $ im))]
           liftIO $ print $ "HOVERING: " ++ show (im_item im)
           elAttr "div" attrs $ el "p" (text "this is a tooltip")
+
+        hoverWidgetEv :: (MonadWidget t m)
+          => Event t (Maybe (ItemMeta t)) -- ^ the item we are hovering over
+          -> Event t (m ())
+        hoverWidgetEv ev = fmap f ev where
+          f mim = case mim of
+            Nothing -> blank
+            Just ev -> hoverWidget ev
       --end let
 
       -- variable to track current selection (clickItemEv defined later on)
       currentSelection :: Behavior t (Maybe (ItemMeta t)) <- hold Nothing clickItemEv
 
       -- mouse over widget
-      hoverDyn :: Dynamic t [ItemMeta t] <- holdDyn [] hoverEv
-      _ <- simpleList hoverDyn (makeSimple hoverWidget)
-      _ <- simpleList hoverDyn funnyHover
+      -- hoverDyn :: Dynamic t [ItemMeta t] <- holdDyn [] hoverEv
+      -- _ <- simpleList hoverDyn (makeSimple hoverWidget)
+      -- _ <- simpleList hoverDyn funnyHover
 
       -- set up on click triggers
       --forM_ itemMetas (\im -> performEvent ((\_ -> liftIO $ simpleTrigger im) <$> im_click_event im))
@@ -304,15 +312,17 @@ potatomain = do
 
       let
         -- create an event when we mouse over any item
-        hoverEv :: Event t [ItemMeta t] = leftmost $ map (\im -> fmap (const [im]) (im_mouseover_event im)) itemMetas
+        --hoverEv :: Event t [ItemMeta t] = leftmost $ map (\im -> fmap (const [im]) (im_mouseover_event im)) itemMetas
+        hoverEv :: Event t (Maybe (ItemMeta t)) = leftmost $ map (\im -> fmap (const (Just im)) (im_mouseover_event im)) itemMetas
+
         -- create an event that fires after any of the actions above is performed
         clickItemEv :: Event t (Maybe (ItemMeta t)) = Just <$> leftmost clickItemEvs_
 
       -- debugging hoverEv
-      performEvent $ (liftIO . print . im_item . RU.head) <$> hoverEv
+      -- performEvent $ (liftIO . print . im_item . RU.head) <$> hoverEv
 
       -- more debugging
-      _ <- widgetHold blank $ fmap (\_ -> liftIO $ print "HI") hoverEv
+      somed :: Dynamic t () <- widgetHold blank $ hoverWidgetEv hoverEv
 
       -- draw lines
       forM_ itemMetas (lineMap itemMetaMap allConnections)
