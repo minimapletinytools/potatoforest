@@ -40,8 +40,6 @@ potatomain = do
     tiered :: [ItemConnectionsList]
     tiered = sortTieredItems $ tiered'
 
-    --lineConnections :: Map ItemId LineMeta
-
     --withItemMeta :: (MonadReader r m) => ItemId -> m a -> (ItemMeta t -> m a) -> m a
     withItemMeta :: ItemMetaMap t -> ItemId -> a -> (ItemMeta t -> a) -> a
     withItemMeta imm iid n jf = case lookup iid imm of
@@ -64,14 +62,15 @@ potatomain = do
       ItemMetaMap t -- ^ all items
       -> ItemConnectionsMap -- ^ map to look up ItemConnections
       -> ItemMeta t -- ^ item we want to draw all lines from
-      -> m ()
+      -> m [LineMeta] -- ^ list of all lines we created
     lineMap imm icm im = do
       let
         pos' = ia_pos . im_attr $ im
         connections = M.findWithDefault M.empty (im_item im) icm
-      mapKeysM connections $ \item -> withItemMeta imm (itemId item) blank $ \eim ->
-        line (offsetPosToItemBoxCenter pos') (offsetPosToItemBoxCenter . ia_pos . im_attr $ eim)
-      return ()
+      -- for now, join all connections together, (rather than discern by recipe)
+      fmap join $ mapKeysM connections $ \item -> withItemMeta imm (itemId item) (return []) $ \eim -> do
+        il <- line (offsetPosToItemBoxCenter pos') (offsetPosToItemBoxCenter . ia_pos . im_attr $ eim)
+        return [il]
 
     -- main widget
     potatoWidget :: forall t m. (MonadWidget t m) => m ()
@@ -89,6 +88,10 @@ potatomain = do
         itemMetaMap :: Map ItemId (ItemMeta t)
         itemMetaMap = M.fromList $ map (\im -> (itemId (im_item im), im)) itemMetas
 
+        -- | map of items to all lines going to it
+        itemLineMetaMap :: Map ItemId [LineMeta]
+        itemLineMetaMap = M.fromList itemLineMetas'
+
         -- | recursively selects an items and all items it depends on
         selectRecursive ::
           ItemMetaMap t -- ^ all items
@@ -97,11 +100,14 @@ potatomain = do
           -> IO ()
         selectRecursive imm icm im = do
           -- recursively select over all connections
-          let connections = M.findWithDefault M.empty (im_item im) icm
+          let
+            connections = M.findWithDefault M.empty (im_item im) icm
+            lms = M.findWithDefault [] (itemId . im_item $ im) itemLineMetaMap
           mapKeysM connections $ \item ->
             withItemMeta imm (itemId item) blank (selectRecursive imm icm)
           -- select the current item
           im_trigger_action im ("class" =: "tech selected")
+          forM_ lms (\lm -> lm_trigger_action lm ("class" =: "path"))
 
         -- recursively unselects an items and all items it depends on
         unselectRecursive ::
@@ -111,11 +117,15 @@ potatomain = do
           -> IO ()
         unselectRecursive imm icm im = do
           -- recursively unselect over all connections
-          let connections = M.findWithDefault M.empty (im_item im) icm
+          let
+            connections = M.findWithDefault M.empty (im_item im) icm
+            lms = M.findWithDefault [] (itemId . im_item $ im) itemLineMetaMap
           mapKeysM connections $ \item ->
             withItemMeta imm (itemId item) blank (unselectRecursive imm icm)
           -- unselect the current item
           im_trigger_action im ("class" =: "tech")
+          forM_ lms (\lm -> lm_trigger_action lm ("class" =: "path hidden"))
+
 
         -- for now, we just highlight ourself
         simpleTrigger :: ItemMeta t -> IO ()
@@ -129,7 +139,7 @@ potatomain = do
           -- first unselect previous
           case prev of
             Nothing  -> return ()
-            Just pim -> trace ("unselecting: " <> show (im_item pim)) $ unselectRecursive itemMetaMap allConnections pim
+            Just pim -> unselectRecursive itemMetaMap allConnections pim
           -- then select current
           trace ("selecting: " <> show (im_item im)) $ selectRecursive itemMetaMap allConnections im
 
@@ -153,10 +163,7 @@ potatomain = do
             Just ev -> hoverWidget ev
       --end let
 
-      -- variable to track current selection (clickItemEv defined later on)
-      currentSelection :: Behavior t (Maybe (ItemMeta t)) <- hold Nothing clickItemEv
-
-      -- set up on click triggers
+      -- set up on click triggers (currentSelection defined later)
       --forM_ itemMetas (\im -> performEvent ((\_ -> liftIO $ simpleTrigger im) <$> im_click_event im))
       clickItemEvs_ <- forM itemMetas (\im -> performEvent
         ((\prev -> liftIO $ selectAction prev im >> return im) <$> tag currentSelection (im_click_event im)))
@@ -168,11 +175,17 @@ potatomain = do
         -- create an event that fires after any of the actions above is performed
         clickItemEv :: Event t (Maybe (ItemMeta t)) = Just <$> leftmost clickItemEvs_
 
+      -- variable to track current selection
+      currentSelection :: Behavior t (Maybe (ItemMeta t)) <- hold Nothing clickItemEv
+
       -- set up hover widget events
       widgetHold blank $ hoverWidgetEv hoverEv
 
-      -- draw lines
-      forM_ itemMetas (lineMap itemMetaMap allConnections)
+      -- draw lines and set up line map
+      itemLineMetas' <- forM itemMetas $ \im -> do
+        ils <- lineMap itemMetaMap allConnections im
+        return (itemId . im_item $ im, ils)
+
 
       return ()
 

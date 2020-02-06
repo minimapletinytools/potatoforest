@@ -6,6 +6,7 @@ a { color:#fff; }
 .pic { width:64px; height:64px; padding:3px; }
 .items { text-align:left; margin-left: 1.5px }
 .path { position:absolute; background-color:#aaa; height:2px; }
+.hidden { visibility: hidden; }
 .dark { opacity: 0.0 }
 .blurred { opacity:0.3 }
 .blurred2 { opacity:0.0 }

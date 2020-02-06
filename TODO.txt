@@ -1,6 +1,7 @@
 ::TODO TMRW::
 -get basic mouseover nonsense working
   -make sure the mouseover box does not cover so you can still click to highlight
+  -do mouseout nonsense :)
 DONE-get boxes to draw to correct size
 DONE-get lines to point to correct part of box
 DONE-click should unselect
@@ -13,8 +14,17 @@ DONE-click should unselect
 -add helper methods to recurse up a tree and recurse down a tree
   - you can probably do applicative to handle Nothing case or something like that.
 
+
 -do proper item positioning
   -average of parent position ,then sorted to fit from left to right
+
+::STYLING MVP::
+-write better styling helpers
+-define classes
+  -item, path, selected, tooltip
+-do greyed out item boxes
+IGNORE-do select all option (initial state?)
+-create proper style sheet
 
 ::OTHER TODO::
 -add parsing for infinity keyword

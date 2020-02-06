@@ -6,6 +6,7 @@ module Widgets (
   , toAttrMap
   , ItemMeta(..)
   , ItemMetaMap
+  , LineMeta(..)
   , line
   , itemBox
 ) where
@@ -27,6 +28,7 @@ offsetPosToItemBoxCenter :: Pos -> Pos
 offsetPosToItemBoxCenter (a,b) = (a + fst itemSize `div` 2, b + snd itemSize `div` 2)
 
 -- | item attribute data
+-- TODO delete this
 data ItemAttr = ItemAttr {
   ia_pos :: Pos
 }
@@ -44,7 +46,7 @@ toAttrMap ia = fromList [
 -- | reflex item meta data
 data ItemMeta t = ItemMeta {
   im_item              :: Item
-  , im_attr            :: ItemAttr
+  , im_attr            :: ItemAttr -- TODO rename this to im_pos, this is confusing since there is also dynamic attribute on this elt
   , im_trigger_action  :: Map Text Text -> IO()
   , im_click_event     :: Event t ()
   , im_mouseover_event :: Event t ()
@@ -54,19 +56,25 @@ data ItemMeta t = ItemMeta {
 -- | map of items to their metadata
 type ItemMetaMap t = Map ItemId (ItemMeta t)
 
+data LineMeta = LineMeta {
+  lm_trigger_action :: Map Text Text -> IO ()
+}
+
 -- | draw line between two items (itemel1, itemel2)
 -- thx https://github.com/kouky/line-css.js/blob/master/src/line-css.coffee
-line :: (MonadWidget t m) => Pos -> Pos -> m ()
+line :: (MonadWidget t m) => Pos -> Pos -> m LineMeta
 line a b = do
   let
     attrMap = M.fromList [
          styleToAttr (makeLineStyle a b)
-        , ("class", "path")
+        , ("class", "path hidden")
       ]
-  -- TODO triggers for highlighting
-  --(modAttrEv, action) <- newTriggerEvent
-  (e,_) <- elAttr' "div" attrMap blank
-  return ()
+  (modAttrEv, action) <- newTriggerEvent
+  dynAttrs <- foldDyn M.union attrMap modAttrEv
+  (e,_) <- elDynAttr' "div" dynAttrs blank
+  return $ LineMeta {
+      lm_trigger_action = action
+    }
 
 -- | creates a widget for an item and returns its ItemMeta
 itemBox :: (MonadWidget t m) => Item -> ItemAttr -> m (ItemMeta t)
