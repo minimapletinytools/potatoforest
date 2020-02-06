@@ -13,10 +13,9 @@ DONE-click should unselect
   -maybe create text box?
 -add helper methods to recurse up a tree and recurse down a tree
   - you can probably do applicative to handle Nothing case or something like that.
-
-
 -do proper item positioning
   -average of parent position ,then sorted to fit from left to right
+-starting items box
 
 ::STYLING MVP::
 -write better styling helpers
@@ -27,9 +26,10 @@ IGNORE-do select all option (initial state?)
 -create proper style sheet
 
 ::OTHER TODO::
--add parsing for infinity keyword
--add STARTING parsing as part of item parsing and remove the other STARTING parsing
--make sure auto generated names can be used as properties in html
+IGNORE-add parsing for infinity keyword
+DONE-add STARTING parsing as part of item parsing and remove the other STARTING parsing
+DONE-make sure auto generated names can be used as properties in html
+-figure out how to handle time properly...
 
 ::PARSER TODO::
 -high priority

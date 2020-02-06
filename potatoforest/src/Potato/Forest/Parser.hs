@@ -5,7 +5,9 @@ module Potato.Forest.Parser (
   ForestBlocks(..)
   , runForestParser
   , runForestBlocksParser
+
   -- exported for testing
+  , identifier
 
 ) where
 
@@ -16,7 +18,7 @@ import           Data.Char
 import           Data.Default
 import qualified Data.Map                   as M
 import qualified Data.Set                   as S
-import           Data.Text                  (cons, pack, unpack)
+import        qualified   Data.Text     as T
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -38,6 +40,11 @@ instance Default ForestBlocks where
 itemDNE :: P.ItemId -> Parser a
 itemDNE itemId = fail ("item " ++ show itemId ++ " does not exist")
 
+-- | prefix for automatically generate items and recipes
+-- thus no identifier is allowed to begin with this
+autoPrefix :: Text
+autoPrefix = "_____"
+
 -- | adds an item to the ForestBlocks
 -- returns True if the item already existed
 addItem :: P.Item -> Parser Bool
@@ -50,6 +57,13 @@ addItem item = do
   put $ ps { knownItems = S.insert item knownItems' }
   return r
 
+
+-- | adds a starting item to ForestBlocks
+-- note if the item exists already (which it shouldn't) it will overwrite it with no warning
+addStartingItem :: P.Item -> Int -> Parser ()
+addStartingItem item q = do
+  ps <- get
+  put $ ps { startingItems = M.insert item q (startingItems ps) }
 
 -- | adds an recipe to the ForestBlocks
 -- returns True if the recipe already existed
@@ -126,9 +140,9 @@ lookAheadCommand = lookAhead . try $ (space :: Parser ()) *> (void reservedWord 
 
 identifier :: Parser Text
 identifier = (lexeme . try) (p >>= check) where
-  p = cons <$> letterChar <*> takeWhileP (Just "itemId") (\s -> isAlphaNum s || s == '_')
+  p = T.cons <$> letterChar <*> takeWhileP (Just "itemId") (\s -> isAlphaNum s || s == '_')
   check :: Text -> Parser Text
-  check x = if all isUpper (unpack x)
+  check x = if all isUpper (T.unpack x) || autoPrefix `T.isPrefixOf` x
     then fail $ "keyword " ++ show x ++ " cannot be an identifier"
     else return x
 
@@ -183,6 +197,7 @@ data OptionalItemFields = OptionalItemFields {
   , requires :: Maybe [RequiredItemExp]
   , inputs   :: Maybe [BaseItemExp]
   , quantity :: Maybe Int
+  , starting :: Maybe Int
 }
 
 -- can we just do deriving Default?
@@ -195,18 +210,20 @@ instance Default OptionalItemFields where
       , requires = Nothing
       , inputs = Nothing
       , quantity = Nothing
+      , starting = Nothing
     }
 
 -- | incrementally adds optional fields for an item
 parseOptionalItemFields_ :: OptionalItemFields -> Parser OptionalItemFields
 parseOptionalItemFields_ oif =
-  helper "TITLE" tillReserved (\x oif' -> oif' { title = pack x})
-  <|> helper "DESC" tillReserved (\x oif' -> oif' { desc = pack x})
+  helper "TITLE" tillReserved (\x oif' -> oif' { title = T.pack x})
+  <|> helper "DESC" tillReserved (\x oif' -> oif' { desc = T.pack x})
   <|> helper "LIMIT" number (\x oif' -> oif' { limit = Just x})
   <|> helper "TIER" number (\x oif' -> oif' { tier = Just x})
   <|> helper "REQUIRES" parseRequiredItemExprList (\x oif' -> oif' { requires = Just x})
   <|> helper "INPUTS" parseBaseItemExprList (\x oif' -> oif' { inputs = Just x})
   <|> helper "QUANTITY" number (\x oif' -> oif' { quantity = Just x})
+  <|> helper "STARTING" number (\x oif' -> oif' { starting = Just x})
   <|> return oif where
     tillReserved = lexeme $ manyTill asciiChar lookAheadCommand
     helper :: Text -> Parser a -> (a -> OptionalItemFields -> OptionalItemFields) -> Parser OptionalItemFields
@@ -250,32 +267,41 @@ buildInventory mexps = case mexps of
   Nothing   -> return M.empty
   Just exps -> buildInventory_ exps
 
-parseItemRecipe :: Parser (Maybe P.Recipe)
-parseItemRecipe = do
+-- | parse rest of item definition
+-- returns (quantity, recipe)
+parseItemRest :: Parser (Maybe Int, Maybe P.Recipe)
+parseItemRest = do
   symbol "ITEM"
   itemId' <- parseItemId
   oif <- parseOptionalItemFields
   existingItem <- getItem itemId'
   case existingItem of
     Nothing -> itemDNE itemId'
-    Just item -> if isNothing (requires oif) && isNothing (inputs oif)
-      then return Nothing
-      else do
-        exclusiveRequires' <- buildInventory (fmap (filter isRequired) (requires oif))
-        requires' <- buildInventory (fmap (filter (not .isRequired)) (requires oif))
-        inputs' <- buildInventory (inputs oif)
-        let
-          recipeId' = P.RecipeId $ itemId' & (\(P.ItemId i) ->  "_____" <> i)
-          recipe = P.Recipe {
-              recipeId = recipeId'
-              , requires = requires'
-              , exclusiveRequires = exclusiveRequires'
-              , inputs = inputs'
-              , outputs = M.singleton item (fromMaybe 1 (quantity oif))
-            }
-        exists <- addRecipe recipe
-        when exists $ fail $ "recipe " ++ show recipeId' ++ " already exists"
-        return $ Just recipe
+    Just item -> do
+      let
+        rstarting = starting oif
+      case rstarting of
+        Nothing -> return ()
+        Just q -> addStartingItem item q
+      rrecipe <- if isNothing (requires oif) && isNothing (inputs oif)
+        then return Nothing
+        else do
+          exclusiveRequires' <- buildInventory (fmap (filter isRequired) (requires oif))
+          requires' <- buildInventory (fmap (filter (not .isRequired)) (requires oif))
+          inputs' <- buildInventory (inputs oif)
+          let
+            recipeId' = P.RecipeId $ itemId' & (\(P.ItemId i) ->  autoPrefix <> i)
+            recipe = P.Recipe {
+                recipeId = recipeId'
+                , requires = requires'
+                , exclusiveRequires = exclusiveRequires'
+                , inputs = inputs'
+                , outputs = M.singleton item (fromMaybe 1 (quantity oif))
+              }
+          exists <- addRecipe recipe
+          when exists $ fail $ "recipe " ++ show recipeId' ++ " already exists"
+          return $ Just recipe
+      return (rstarting, rrecipe)
 
 -- | helper data struct for parsing items
 data OptionalRecipeFields = OptionalRecipeFields {
@@ -339,11 +365,13 @@ parseRecipe = do
 
 
 
+{- DELETE starting item part of item def now
 parseStarting :: Parser (M.Map P.ItemId Int)
 parseStarting = do
   symbol "STARTING"
   itemExprs <- parseBaseItemExprList
   return $ M.fromList $ map (\(BaseItemExp n i) -> (i, n)) itemExprs
+-}
 
 line :: Parser Text
 line = lexeme $ takeWhileP (Just "line") (not . (flip elem ("\r\n" :: String)))
@@ -358,9 +386,8 @@ parseItemsOnly =
 -- | parses everything but items and stores results in ForestBlocks
 parseRest :: Parser ()
 parseRest =
-  try (void parseItemRecipe *> parseRest)
+  try (void parseItemRest *> parseRest)
   <|> try (void parseRecipe *> parseRest)
-  <|> try (void parseStarting *> parseRest)
   <|> eof
   <|> (line *> parseRest)
 

@@ -1,6 +1,8 @@
 ITEM teddy_bear
+STARTING 1
 
 ITEM giraffe
+STARTING 2
 
 ITEM apple
 INPUTS teddy_bear
@@ -25,7 +27,3 @@ blender
 wheel
 REQUIRES
 2 giraffe
-
-STARTING
-1 teddy_bear
-1 giraffe

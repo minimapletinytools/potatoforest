@@ -1,4 +1,5 @@
 ITEM teddy_bear
+STARTING 1
 ITEM apple
 INPUTS teddy_bear
 ITEM milk
@@ -7,6 +8,3 @@ ITEM shake
 INPUTS apple
 ITEM blender
 INPUTS shake
-
-STARTING
-1 teddy_bear

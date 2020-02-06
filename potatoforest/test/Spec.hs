@@ -42,6 +42,14 @@ parseFile filename = do
     Left x  -> trace (errorBundlePretty x) $ return Nothing
     Right x -> return $ Just x
 
+test_identifier :: Spec
+test_identifier = describe "parser: identifier" $ do
+  it "rejects all caps identifiers" $
+    runForestParser identifier "ALLCAPS" `shouldSatisfy` isLeft
+  it "rejects all reserved prefix" $
+    runForestParser identifier "__________nogood" `shouldSatisfy` isLeft
+
+
 test_runForestBlocksParser :: String -> Spec
 test_runForestBlocksParser filename = describe "runForestBlocksParser" $ do
   it ("does not crash on test input " ++ filename) $ do
@@ -71,5 +79,6 @@ main = do
         test_Item_Eq
     describe "Parser" $ do
       test_runForestBlocksParser "testing1.spec"
+      test_identifier
     describe "Methods" $ do
       test_generateTieredItems

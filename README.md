@@ -112,9 +112,9 @@ STARTING
 ### Time
 The only built-in item is `time` which represents in-game elapsed time. Time is treated differently in the following ways:
 
-1. It has infinity starting quantity.
+1. It is a starting item with unlimited quantity
 
-2. Time can not be listed in an `OUTPUT` field.
+2. It can not be listed in an `OUTPUT` field.
 
 3. Two recipes that require time will use the same piece of time (e.g. completing two recipes that require 1 unit of time takes 1 unit of time not 2).
 
