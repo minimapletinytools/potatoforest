@@ -45,9 +45,24 @@ parseFile filename = do
 test_identifier :: Spec
 test_identifier = describe "parser: identifier" $ do
   it "rejects all caps identifiers" $
-    runForestParser identifier "ALLCAPS" `shouldSatisfy` isLeft
+    runForestParser' identifier "ALLCAPS" `shouldSatisfy` isLeft
   it "rejects all reserved prefix" $
-    runForestParser identifier "__________nogood" `shouldSatisfy` isLeft
+    runForestParser' identifier "__________nogood" `shouldSatisfy` isLeft
+
+test_parseTextBlob :: Spec
+test_parseTextBlob = describe "parser: parseTextBlob" $ do
+  let
+    end = "\nDESC stuff after here never gets parsed"
+    tb1 = " some text\n\n\nhi\r\n\n\r\nbye\nok\nno"
+    tb2 = "keywords in middle of sentence DESC TITLE ITEM is ok"
+    tb3 = "space after newline is ok"
+    tb3End = "\n        \t  \t   DESC"
+  it "handles many new different new lines" $
+    runForestParser' parseTextBlob (tb1 <> end) `shouldBe` Right tb1
+  it "handles allows keywords in middle of blob" $
+    runForestParser' parseTextBlob (tb2 <> end) `shouldBe` Right tb2
+  it "handles spaces before keyword" $
+    runForestParser' parseTextBlob (tb3 <> tb3End) `shouldBe` Right tb3
 
 
 test_runForestBlocksParser :: String -> Spec
@@ -80,5 +95,6 @@ main = do
     describe "Parser" $ do
       test_runForestBlocksParser "testing1.spec"
       test_identifier
+      test_parseTextBlob
     describe "Methods" $ do
       test_generateTieredItems

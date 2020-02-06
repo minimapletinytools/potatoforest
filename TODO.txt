@@ -1,7 +1,7 @@
 ::TODO TMRW::
 -get basic mouseover nonsense working
   -make sure the mouseover box does not cover so you can still click to highlight
-  -do mouseout nonsense :)
+  DONE-do mouseout nonsense :)
 DONE-get boxes to draw to correct size
 DONE-get lines to point to correct part of box
 DONE-click should unselect
@@ -33,9 +33,6 @@ DONE-make sure auto generated names can be used as properties in html
 
 ::PARSER TODO::
 -high priority
-  -fix `manyTill _ reservedWord` parsing, it's broke af
-  -should recognize any all caps word at the beginning of a line as a keyword
-  -easy way to fix is to require item descriptions to be in one line or to be in quotation marks
 -mid priority
   -fix show instances of recipes and starting items so that they don't show the items all over again
   -do variable name cleanup in parsers (maybe make new modules?)
@@ -46,6 +43,9 @@ DONE-make sure auto generated names can be used as properties in html
   -figure out how to derive Default instance rather than defining your own
 
 ::DONE::
+DONE-fix `manyTill _ reservedWord` parsing, it's broke af
+  -should recognize any all caps word at the beginning of a line as a keyword
+  -easy way to fix is to require item descriptions to be in one line or to be in quotation marks
 DONE-finish required tasks in frontend
 DONE-add tests for untested stuff in Types.hs
 DONE-slight cleanup in parser tests

@@ -4,10 +4,12 @@
 module Potato.Forest.Parser (
   ForestBlocks(..)
   , runForestParser
+  , runForestParser'
   , runForestBlocksParser
 
   -- exported for testing
   , identifier
+  , parseTextBlob
 
 ) where
 
@@ -87,12 +89,19 @@ getItem itemId = do
 
 type Parser = StateT ForestBlocks (Parsec Void Text)
 
--- TODO you can delete these now
+-- | runs forest parses with given initial state
 runForestParser_ :: ForestBlocks -> Parser a -> Text -> Either (ParseErrorBundle Text Void) (a, ForestBlocks)
 runForestParser_ ps p = runParser (runStateT p ps) "Potato Forest"
 
+-- | runs forest parses with empty state
 runForestParser :: Parser a -> Text -> Either (ParseErrorBundle Text Void) (a, ForestBlocks)
 runForestParser = runForestParser_ def
+
+-- | same as above except discards state (useful for testing)
+runForestParser' :: Parser a -> Text -> Either (ParseErrorBundle Text Void) a
+runForestParser' p t = case runForestParser p t of
+  Left e -> Left e
+  Right x -> Right $ fst x
 
 
 sc :: Parser ()
@@ -130,13 +139,16 @@ reservedWords = S.fromList [
 reservedIdentifiers :: S.Set Text
 reservedIdentifiers = S.fromList ["exclusive"] `S.union` reservedWords
 
+-- does not lexeme!
 reservedWord :: Parser Text
-reservedWord = choice . map (try . symbol) $ S.toList reservedWords
+reservedWord = choice . map (try . string) $ S.toList reservedWords
 
 -- | TODO this won't let you use reserved words in descriptions and title :(
 lookAheadCommand :: Parser ()
 lookAheadCommand = lookAhead . try $ (space :: Parser ()) *> (void reservedWord <|> eof)
---lookAheadCommand = lookAhead . try $ (space :: Parser ()) *> (void (satisfy isUpper) <|> eof)
+
+lookAheadNewlineCommand :: Parser ()
+lookAheadNewlineCommand = lookAhead . try $ eol *> (space :: Parser ()) *> (void reservedWord <|> eof)
 
 identifier :: Parser Text
 identifier = (lexeme . try) (p >>= check) where
@@ -145,6 +157,11 @@ identifier = (lexeme . try) (p >>= check) where
   check x = if all isUpper (T.unpack x) || autoPrefix `T.isPrefixOf` x
     then fail $ "keyword " ++ show x ++ " cannot be an identifier"
     else return x
+
+parseTextBlob :: Parser Text
+parseTextBlob = lexeme $ do
+  r <- manyTill asciiChar lookAheadNewlineCommand
+  return $ T.pack r
 
 parseItemId :: Parser P.ItemId
 parseItemId = P.ItemId <$> (lexeme identifier <?> "valid itemId")
@@ -216,8 +233,8 @@ instance Default OptionalItemFields where
 -- | incrementally adds optional fields for an item
 parseOptionalItemFields_ :: OptionalItemFields -> Parser OptionalItemFields
 parseOptionalItemFields_ oif =
-  helper "TITLE" tillReserved (\x oif' -> oif' { title = T.pack x})
-  <|> helper "DESC" tillReserved (\x oif' -> oif' { desc = T.pack x})
+  helper "TITLE" parseTextBlob (\x oif' -> oif' { title = x})
+  <|> helper "DESC" parseTextBlob (\x oif' -> oif' { desc = x})
   <|> helper "LIMIT" number (\x oif' -> oif' { limit = Just x})
   <|> helper "TIER" number (\x oif' -> oif' { tier = Just x})
   <|> helper "REQUIRES" parseRequiredItemExprList (\x oif' -> oif' { requires = Just x})
@@ -225,7 +242,6 @@ parseOptionalItemFields_ oif =
   <|> helper "QUANTITY" number (\x oif' -> oif' { quantity = Just x})
   <|> helper "STARTING" number (\x oif' -> oif' { starting = Just x})
   <|> return oif where
-    tillReserved = lexeme $ manyTill asciiChar lookAheadCommand
     helper :: Text -> Parser a -> (a -> OptionalItemFields -> OptionalItemFields) -> Parser OptionalItemFields
     helper s p f = lexeme . try $ do
       symbol s
@@ -382,6 +398,7 @@ parseItemsOnly =
   try (void parseItem *> parseItemsOnly)
   <|> eof
   <|> (line *> parseItemsOnly)
+  <?> "ITEM"
 
 -- | parses everything but items and stores results in ForestBlocks
 parseRest :: Parser ()
@@ -390,7 +407,9 @@ parseRest =
   <|> try (void parseRecipe *> parseRest)
   <|> eof
   <|> (line *> parseRest)
+  <?> "ITEM or RECIPE"
 
+-- | our parser routine for everything
 runForestBlocksParser :: Text -> Either (ParseErrorBundle Text Void) ForestBlocks
 runForestBlocksParser s = case runForestParser parseItemsOnly s of
   Left e -> Left e
