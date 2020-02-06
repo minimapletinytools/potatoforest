@@ -170,16 +170,19 @@ potatomain = do
 
       let
         -- create an event when we mouse over any item
-        hoverEv :: Event t (Maybe (ItemMeta t)) = leftmost $ map (\im -> fmap (const (Just im)) (im_mouseover_event im)) itemMetas
+        mouseoverEv :: Event t (ItemMeta t) = leftmost $ map im_mouseover_event itemMetas
+
+        -- create an event when we mouse out any item
+        mouseoutEv :: Event t (ItemMeta t) = leftmost $ map im_mouseout_event itemMetas
 
         -- create an event that fires after any of the actions above is performed
-        clickItemEv :: Event t (Maybe (ItemMeta t)) = Just <$> leftmost clickItemEvs_
+        clickItemEv :: Event t (ItemMeta t) = leftmost clickItemEvs_
 
       -- variable to track current selection
-      currentSelection :: Behavior t (Maybe (ItemMeta t)) <- hold Nothing clickItemEv
+      currentSelection :: Behavior t (Maybe (ItemMeta t)) <- hold Nothing (Just <$> clickItemEv)
 
       -- set up hover widget events
-      widgetHold blank $ hoverWidgetEv hoverEv
+      widgetHold blank $ hoverWidgetEv (leftmost [Just <$> mouseoverEv, const Nothing <$> mouseoutEv])
 
       -- draw lines and set up line map
       itemLineMetas' <- forM itemMetas $ \im -> do

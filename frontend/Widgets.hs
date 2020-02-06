@@ -47,10 +47,10 @@ toAttrMap ia = fromList [
 data ItemMeta t = ItemMeta {
   im_item              :: Item
   , im_attr            :: ItemAttr -- TODO rename this to im_pos, this is confusing since there is also dynamic attribute on this elt
-  , im_trigger_action  :: Map Text Text -> IO()
-  , im_click_event     :: Event t ()
-  , im_mouseover_event :: Event t ()
-  , im_mouseout_event  :: Event t ()
+  , im_trigger_action  :: Map Text Text -> IO ()
+  , im_click_event     :: Event t (ItemMeta t)
+  , im_mouseover_event :: Event t (ItemMeta t)
+  , im_mouseout_event  :: Event t (ItemMeta t)
 }
 
 -- | map of items to their metadata
@@ -83,11 +83,13 @@ itemBox item attr = do
   -- modAttrEv produces map of new attributes which we union with previous ones
   dynAttrs <- foldDyn M.union (toAttrMap attr) modAttrEv
   (e, _) <- elDynAttr' "div" dynAttrs $ el "p" $ text (unItemId (itemId item))
-  return $ ItemMeta {
-    im_item = item
-    , im_attr = attr
-    , im_trigger_action = action
-    , im_click_event = domEvent Click e
-    , im_mouseover_event = domEvent Mouseover e
-    , im_mouseout_event = domEvent Mouseout e
-  }
+  let
+    im = ItemMeta {
+      im_item = item
+      , im_attr = attr
+      , im_trigger_action = action
+      , im_click_event = const im <$> domEvent Click e
+      , im_mouseover_event = const im <$> domEvent Mouseover e
+      , im_mouseout_event = const im <$> domEvent Mouseout e
+    }
+  return im
