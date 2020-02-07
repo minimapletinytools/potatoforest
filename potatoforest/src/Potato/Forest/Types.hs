@@ -7,14 +7,14 @@ module Potato.Forest.Types (
   , builtin_time
   , lookupItem
   , lookupRecipe
-  , Inventory
+  , Inventory(..)
   , ItemSet
   , RecipeSet
 ) where
 
 
 import           Relude
-
+import qualified Text.Show
 import           Potato.Forest.Internal.Containers
 
 import qualified Data.Map                          as M
@@ -61,7 +61,10 @@ builtin_time = Item {
   }
 
 -- | map of item to quantity
-type Inventory = M.Map Item Int
+newtype Inventory = Inventory { unInventory :: M.Map Item Int }
+
+instance Show Inventory where
+  show (Inventory inv) = show $ M.mapKeysWith const itemId inv
 
 data Recipe = Recipe {
     recipeId            :: RecipeId
@@ -80,10 +83,10 @@ instance Eq Recipe where
 instance Default Recipe where
   def = Recipe {
       recipeId = RecipeId ""
-      , requires = M.empty
-      , exclusiveRequires = M.empty
-      , inputs = M.empty
-      , outputs = M.empty
+      , requires = Inventory M.empty
+      , exclusiveRequires = Inventory M.empty
+      , inputs = Inventory M.empty
+      , outputs = Inventory M.empty
     }
 
 type ItemSet = S.Set Item

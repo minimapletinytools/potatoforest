@@ -36,7 +36,7 @@ instance Default ForestBlocks where
   def = ForestBlocks {
       knownItems = S.singleton P.builtin_time
       , knownRecipes = S.empty
-      , startingItems = M.empty
+      , startingItems = P.Inventory M.empty
     }
 
 itemDNE :: P.ItemId -> Parser a
@@ -65,7 +65,7 @@ addItem item = do
 addStartingItem :: P.Item -> Int -> Parser ()
 addStartingItem item q = do
   ps <- get
-  put $ ps { startingItems = M.insert item q (startingItems ps) }
+  put $ ps { startingItems = P.Inventory $ M.insert item q (P.unInventory . startingItems $ ps) }
 
 -- | adds an recipe to the ForestBlocks
 -- returns True if the recipe already existed
@@ -276,11 +276,11 @@ buildInventory_ exps = do
       Nothing -> itemDNE i
       Just x  -> return (x, q)
   i2 <- mapM mapFn i1
-  return $ M.fromList i2
+  return . P.Inventory $ M.fromList i2
 
 buildInventory :: (ItemExp a) => Maybe [a] -> Parser P.Inventory
 buildInventory mexps = case mexps of
-  Nothing   -> return M.empty
+  Nothing   -> return $ P.Inventory M.empty
   Just exps -> buildInventory_ exps
 
 -- | parse rest of item definition
@@ -312,7 +312,7 @@ parseItemRest = do
                 , requires = requires'
                 , exclusiveRequires = exclusiveRequires'
                 , inputs = inputs'
-                , outputs = M.singleton item (fromMaybe 1 (quantity oif))
+                , outputs = P.Inventory $ M.singleton item (fromMaybe 1 (quantity oif))
               }
           exists <- addRecipe recipe
           when exists $ fail $ "recipe " ++ show recipeId' ++ " already exists"

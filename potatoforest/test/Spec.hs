@@ -41,6 +41,7 @@ parseFile filename = do
   case runForestBlocksParser input of
     Left x  -> trace (errorBundlePretty x) $ return Nothing
     Right x -> return $ Just x
+    --Right x -> trace (LT.unpack (pShow x)) $ return $ Just x
 
 test_identifier :: Spec
 test_identifier = describe "parser: identifier" $ do
@@ -83,7 +84,8 @@ test_generateTieredItems = describe "generateTieredItems" $ do
         let
           itemSet = knownItems blocks
           recipeSet = knownRecipes blocks
-        generateTieredItems itemSet recipeSet `shouldSatisfy` (\x -> trace (LT.unpack (pShow x)) $ True)
+        generateTieredItems itemSet recipeSet `shouldSatisfy` (\x -> x `seq` True)
+        --generateTieredItems itemSet recipeSet `shouldSatisfy` (\x -> trace (LT.unpack (pShow x)) $ True)
 
 
 main :: IO ()
