@@ -30,19 +30,19 @@ IGNORE-do select all option (initial state?)
 
 ::PARSER TODO::
 -mid priority
-  -tags
-  -icon
-  -full image
-  -phantom
   -do variable name cleanup in parsers (maybe make new modules?)
--low priority
   -do proper encapsulation for parser methods
+-low priority
   -allow something like "INCLUDE helper.spec" sorta commands
     -the implementation should parse the files separately passing the state between them D:
   -figure out what default deriving on Item and Recipe didn't work as expected
   -figure out how to derive Default instance rather than defining your own
 
 ::DONE::
+DONE-tags
+DONE-icon
+DONE-full image
+DONE-phantom
 DONE-figure out how to handle time properly...
 DONE-fix show instances of recipes and starting items so that they don't show the items all over again
 IGNORE-add parsing for infinity keyword
