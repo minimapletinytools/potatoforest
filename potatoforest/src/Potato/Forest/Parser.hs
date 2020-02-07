@@ -17,13 +17,13 @@ module Potato.Forest.Parser (
 ) where
 
 import qualified Potato.Forest.Types        as P
-import           Relude hiding (some, phantom)
+import           Relude                     hiding (phantom, some)
 
 import           Data.Char
 import           Data.Default
 import qualified Data.Map                   as M
 import qualified Data.Set                   as S
-import        qualified   Data.Text     as T
+import qualified Data.Text                  as T
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -103,7 +103,7 @@ runForestParser = runForestParser_ def
 -- | same as above except discards state (useful for testing)
 runForestParser' :: Parser a -> Text -> Either (ParseErrorBundle Text Void) a
 runForestParser' p t = case runForestParser p t of
-  Left e -> Left e
+  Left e  -> Left e
   Right x -> Right $ fst x
 
 
@@ -232,7 +232,7 @@ data OptionalItemFields = OptionalItemFields {
   , tier     :: Maybe Int
   , tags     :: [Text]
   , icon     :: Maybe Text
-  , image     :: Maybe Text
+  , image    :: Maybe Text
   , phantom  :: P.Phantom
   , requires :: Maybe [RequiredItemExp]
   , inputs   :: Maybe [BaseItemExp]
@@ -329,7 +329,7 @@ parseItemRest = do
         rstarting = starting oif
       case rstarting of
         Nothing -> return ()
-        Just q -> addStartingItem item q
+        Just q  -> addStartingItem item q
       rrecipe <- if isNothing (requires oif) && isNothing (inputs oif)
         then return Nothing
         else do
