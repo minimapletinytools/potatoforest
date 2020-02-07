@@ -142,7 +142,7 @@ The graph generator generates a web-based graph visual of the defined item tree 
 Definitions include directives for the graph generator. Icons and full images for an item can be specified with the optional `ICON` and `IMAGE` image fields respectively.
 
 ### Tier
-The graph generator attempts to render items in rows where each row is "tier". By default, starting items that are not outputs of some recipe and time are tier `0` items and a tier `n` item is made from only tier `m` items where `m < n` where `n` is minimal. The `TIER` field can force items to be in a different tier. Doing so will force all items in tiers above it to be higher. All items in tiers below it will be forced into lower tiers. In this case, a tier `n` item is made from only tier `m` items where `m < n` OR `m = n` if there is a tier `m+1` item that depends on it. Manually set tiers must not break this invariant. If there are multiple recipes that define different tiers for an item, the minimum is used.
+The graph generator attempts to render items in rows where each row is "tier". By default, starting items that are not outputs of some recipe and time are tier `0` items and a tier `n` item is made from only tier `m` items where `m < n` where `n` is minimal. The `TIER` field can force items to be in a different tier. Doing so may force items into different tiers. In this case, a tier `n` item is made from only tier `m` items where `m < n` OR `m = n` if there is a tier `m+1` item that depends on it OR it was manually set to tier `n`.
 
 For example, by default, we have:
 
@@ -159,8 +159,9 @@ items: A -> B -> C -> D -> E
 tier:  1    1    2    3    4  
 ```
 
-When rendered, each tier is rendered at a different vertical level denoted by a different color. If there are dependencies within the same tier, they will be offset into visual subtiers.
+If there are multiple recipes that define different tiers for an item, the minimum is used. When there are circular item requirements, all items are flattened into the same tier by default.
 
+When rendered, each tier is rendered at a different vertical level denoted by a different color. If there are dependencies within the same tier, they will be offset into visual subtiers when possible.
 
 <TODO PHANTOM types, probably needs restrictions>
 If `PHANTOM` is set to `omit` or `pass`, the item will not show up in the renderer. Recipes that use phantom items will simply omit all connections to items sets to `omit` or inherit its recipe ingredients if it is set to `pass`.
