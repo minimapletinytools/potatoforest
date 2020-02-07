@@ -97,18 +97,23 @@ test_runForestBlocksParser filename = describe "runForestBlocksParser" $ do
       Nothing -> False
       otherwise -> True
 
+-- TODO use deepseq to force pls...
 test_generateTieredItems :: Spec
 test_generateTieredItems = describe "generateTieredItems" $ do
+  let
+    --withFile :: Text -> (ForestBlocks -> Spec) -> Spec <- figure out what last type should be
+    withFile filename f = do
+      r <- parseFile filename
+      case r of
+        Nothing     -> assertFailure "could not read file"
+        Just blocks -> f blocks
   it ("handles simple case ok") $ do
-    r <- parseFile "testing2.spec"
-    case r of
-      Nothing -> assertFailure "could not read file"
-      Just blocks -> do
-        let
-          itemSet = knownItems blocks
-          recipeSet = knownRecipes blocks
-        generateTieredItems itemSet recipeSet `shouldSatisfy` (\x -> x `seq` True)
+    withFile "tier_simple.spec" $ \blocks ->
+      generateTieredItems (knownItems blocks) (knownRecipes blocks) `shouldSatisfy` (\x -> length x < 100)
         --generateTieredItems itemSet recipeSet `shouldSatisfy` (\x -> trace (LT.unpack (pShow x)) $ True)
+  it ("handles circular case") $ do
+    withFile "tier_circular.spec" $ \blocks ->
+      generateTieredItems (knownItems blocks) (knownRecipes blocks) `shouldSatisfy` (\x -> length x < 100)
 
 
 main :: IO ()
@@ -119,6 +124,7 @@ main = do
         test_Item_Eq
     describe "Parser" $ do
       test_runForestBlocksParser "testing1.spec"
+      --test_runForestBlocksParser "../examples/sc1.spec"
       test_identifier
       test_parseTextBlob
       test_parseTags

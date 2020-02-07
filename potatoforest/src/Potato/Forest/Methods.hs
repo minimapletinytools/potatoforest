@@ -37,7 +37,6 @@ findItemConnections recipes item = r where
   r = S.foldl addRecipeToItemConnections M.empty recipes'
 
 -- | does not handle forced tiers yet
--- note that the first pass of this function should completely populate ItemConnectionsMap (unless we do early exit)
 findNextTier ::
   RecipeSet -- ^ all recipes
   -> ItemConnectionsMap -- ^ all connections
@@ -59,8 +58,19 @@ generateTieredItems items recipes = unfoldr getNextTieredItems (S.empty, items) 
   allConnections = mapSetToMap (findItemConnections recipes) items
   getNextTieredItems :: (ItemSet, ItemSet) -> Maybe (ItemConnectionsMap, (ItemSet, ItemSet))
   getNextTieredItems (lowerTiers, searchItems) = r where
-    r1 = findNextTier recipes allConnections lowerTiers searchItems
+    -- find the next tier
+    r1' = findNextTier recipes allConnections lowerTiers searchItems
+
+    -- empty means we've found all items, what's left is circular
+    -- for now just lump all circular dependencies at the end
+    -- TODO actually do this (you'll have to do some graph crawling function that marks visited spots)
+    r1 = if S.null r1'
+      then searchItems
+      else r1'
+
+    -- add found items to lowerTiers and remove it from our search items
     r2 = (S.union lowerTiers r1, searchItems S.\\ r1)
+    -- reconnect found items with its ItemConnections
     r1c = mapSetToMap (\item -> M.findWithDefault M.empty item allConnections) r1
     r = if S.null searchItems then Nothing else Just (r1c, r2)
 

@@ -14,9 +14,9 @@ module Potato.Forest.Types (
 ) where
 
 
+import           Potato.Forest.Internal.Containers
 import           Relude
 import qualified Text.Show
-import           Potato.Forest.Internal.Containers
 
 import qualified Data.Map                          as M
 import qualified Data.Set                          as S
@@ -55,12 +55,10 @@ instance Default Item where
 
 -- | time is the only built in item
 builtin_time :: Item
-builtin_time = Item {
+builtin_time = def {
     itemId = ItemId "time"
     , title = "time"
     , desc = "1 unit of time"
-    , limit = Nothing
-    , tier = Just 0
   }
 
 -- | map of item to quantity
