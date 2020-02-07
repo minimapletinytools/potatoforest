@@ -10,11 +10,14 @@ module Potato.Forest.Parser (
   -- exported for testing
   , identifier
   , parseTextBlob
+  , parseTags
+  , parseFilename
+  , parsePhantom
 
 ) where
 
 import qualified Potato.Forest.Types        as P
-import           Relude
+import           Relude hiding (some, phantom)
 
 import           Data.Char
 import           Data.Default
@@ -150,21 +153,37 @@ lookAheadCommand = lookAhead . try $ (space :: Parser ()) *> (void reservedWord 
 lookAheadNewlineCommand :: Parser ()
 lookAheadNewlineCommand = lookAhead . try $ eol *> (space :: Parser ()) *> (void reservedWord <|> eof)
 
-identifier :: Parser Text
-identifier = (lexeme . try) (p >>= check) where
-  p = T.cons <$> letterChar <*> takeWhileP (Just "itemId") (\s -> isAlphaNum s || s == '_')
+identifier_ :: Parser Text
+identifier_ = p >>= check where
+  p = T.cons <$> letterChar <*> takeWhileP (Just "identifier") (\s -> isAlphaNum s || s == '_')
   check :: Text -> Parser Text
   check x = if all isUpper (T.unpack x) || autoPrefix `T.isPrefixOf` x
     then fail $ "keyword " ++ show x ++ " cannot be an identifier"
     else return x
+
+identifier :: Parser Text
+identifier = lexeme identifier_
 
 parseTextBlob :: Parser Text
 parseTextBlob = lexeme $ do
   r <- manyTill asciiChar lookAheadNewlineCommand
   return $ T.pack r
 
+-- | parse a list of space separated tags
+parseTags :: Parser [Text]
+parseTags = lexeme $ sepBy identifier_ (takeWhile1P Nothing (\x -> x == ' ' || x == '\t'))
+
+-- | parse a filename
+parseFilename :: Parser Text
+parseFilename = lexeme $ takeWhile1P Nothing (not . isSpace)
+
+parsePhantom :: Parser P.Phantom
+parsePhantom = try (symbol "omit" >> return P.Omit)
+  <|> try (symbol "pass" >> return P.Pass)
+  <?> "omit or pass"
+
 parseItemId :: Parser P.ItemId
-parseItemId = P.ItemId <$> (lexeme identifier <?> "valid itemId")
+parseItemId = P.ItemId <$> (identifier <?> "valid itemId")
 
 
 class ItemExp a where
@@ -191,7 +210,7 @@ parseBaseItemExp = lexeme $ do
   return $ BaseItemExp amount item
 
 parseBaseItemExprList :: Parser [BaseItemExp]
-parseBaseItemExprList = manyTill parseBaseItemExp lookAheadCommand
+parseBaseItemExprList = manyTill (try parseBaseItemExp) lookAheadCommand
 
 parseRequiredItemExp :: Parser RequiredItemExp
 parseRequiredItemExp = lexeme $ do
@@ -211,6 +230,10 @@ data OptionalItemFields = OptionalItemFields {
   , desc     :: Text
   , limit    :: Maybe Int
   , tier     :: Maybe Int
+  , tags     :: [Text]
+  , icon     :: Maybe Text
+  , image     :: Maybe Text
+  , phantom  :: P.Phantom
   , requires :: Maybe [RequiredItemExp]
   , inputs   :: Maybe [BaseItemExp]
   , quantity :: Maybe Int
@@ -224,6 +247,10 @@ instance Default OptionalItemFields where
       , desc = ""
       , limit = Nothing
       , tier = Nothing
+      , tags = []
+      , icon = Nothing
+      , image = Nothing
+      , phantom = P.Normal
       , requires = Nothing
       , inputs = Nothing
       , quantity = Nothing
@@ -237,7 +264,11 @@ parseOptionalItemFields_ oif =
   <|> helper "DESC" parseTextBlob (\x oif' -> oif' { desc = x})
   <|> helper "LIMIT" number (\x oif' -> oif' { limit = Just x})
   <|> helper "TIER" number (\x oif' -> oif' { tier = Just x})
+  <|> helper "TAG" parseTags (\x oif' -> oif' { tags = x})
+  <|> helper "ICON" parseFilename (\x oif' -> oif' { icon = Just x})
+  <|> helper "IMAGE" parseFilename (\x oif' -> oif' { image = Just x})
   <|> helper "REQUIRES" parseRequiredItemExprList (\x oif' -> oif' { requires = Just x})
+  <|> helper "PHANTOM" parsePhantom (\x oif' -> oif' { phantom = x})
   <|> helper "INPUTS" parseBaseItemExprList (\x oif' -> oif' { inputs = Just x})
   <|> helper "QUANTITY" number (\x oif' -> oif' { quantity = Just x})
   <|> helper "STARTING" number (\x oif' -> oif' { starting = Just x})
@@ -353,7 +384,7 @@ parseOptionalRecipeFields = parseOptionalRecipeFields_ def
 parseRecipe :: Parser P.Recipe
 parseRecipe = do
   symbol "RECIPE"
-  recipeId' <- P.RecipeId <$> (lexeme identifier <?> "valid recipeId")
+  recipeId' <- P.RecipeId <$> (identifier <?> "valid recipeId")
   orf <- parseOptionalRecipeFields
   let
     rrequires' = rrequires orf

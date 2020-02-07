@@ -100,7 +100,7 @@ Finally, item definitions allow for the following optional graph generator direc
 ```
 TIER <0-99>
 ICON <thumbnail.png>
-FULL <image.png>
+IMAGE <image.png>
 PHANTOM <omit/pass/false>
 ```
 
@@ -139,7 +139,7 @@ The only built-in item is `time` which represents in-game elapsed time. Time is 
 The graph generator generates a web-based graph visual of the defined item tree indicating which items are needed for which items. Hints can be added to the definition file to help structure the visual better.
 
 ### Icons and Images
-Definitions include directives for the graph generator. Icons and full images for an item can be specified with the optional `ICON` and `FULL` image fields.
+Definitions include directives for the graph generator. Icons and full images for an item can be specified with the optional `ICON` and `IMAGE` image fields respectively.
 
 ### Tier
 The graph generator attempts to render items in rows where each row is "tier". By default, starting items that are not outputs of some recipe and time are tier `0` items and a tier `n` item is made from only tier `m` items where `m < n` where `n` is minimal. The `TIER` field can force items to be in a different tier. Doing so will force all items in tiers above it to be higher. All items in tiers below it will be forced into lower tiers. In this case, a tier `n` item is made from only tier `m` items where `m < n` OR `m = n` if there is a tier `m+1` item that depends on it. Manually set tiers must not break this invariant. If there are multiple recipes that define different tiers for an item, the minimum is used.

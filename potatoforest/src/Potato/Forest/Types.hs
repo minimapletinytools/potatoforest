@@ -2,6 +2,7 @@
 module Potato.Forest.Types (
   ItemId(..)
   , RecipeId(..)
+  , Phantom(..)
   , Item(..)
   , Recipe(..)
   , builtin_time
@@ -25,6 +26,8 @@ import           Data.Default
 
 newtype ItemId = ItemId { unItemId :: T.Text } deriving (Eq, Ord, Show)
 newtype RecipeId = RecipeId { unRecipeId :: T.Text } deriving (Eq, Ord, Show)
+
+data Phantom = Normal | Omit | Pass deriving (Eq, Show)
 
 -- | internal types
 data Item = Item {

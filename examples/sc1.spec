@@ -12,7 +12,8 @@
 # 12 gas_patch
 
 ITEM hatchery
-TAG building tier1
+TIER 1
+TAG building
 STARTING 1
 REQUIRES
 1800 time
@@ -21,7 +22,8 @@ drone
 300 minerals
 
 ITEM extractor
-TAG building tier1
+TIER 1
+TAG building
 REQUIRES
 600 time
 INPUTS
@@ -31,14 +33,16 @@ gas_patch_occupied
 
 
 ITEM creep_colony
-TAG building tier1
+TIER 1
+TAG building
 REQUIRES
 300 time
 INPUTS
 drone
 
 ITEM spawning_pool
-TAG building tier1
+TIER 1
+TAG building
 REQUIRES
 hatchery
 1200 time
@@ -47,7 +51,8 @@ drone
 
 
 ITEM evolution_chamber
-TAG building tier1
+TIER 1
+TAG building
 REQUIRES
 hatchery
 600 time
@@ -55,7 +60,8 @@ INPUTS
 drone
 
 ITEM hydralisk_den
-TAG building tier1
+TIER 1
+TAG building
 REQUIRES
 spawning_pool
 600 time
@@ -63,7 +69,8 @@ INPUTS
 drone
 
 ITEM sunken_colony
-TAG building tier1
+TIER 1
+TAG building
 REQUIRES
 spawning_pool
 300 time
@@ -71,7 +78,8 @@ INPUTS
 creep_colony
 
 ITEM spore_colony
-TAG building tier1
+TIER 1
+TAG building
 REQUIRES
 evolution_chamber
 300 time
@@ -80,34 +88,39 @@ creep_colony
 
 
 ITEM lair
-TAG building tier2
+TIER 2
+TAG building
 REQUIRES
 1500 time
 INPUTS
 hatchery
 
 ITEM queens_nest
-TAG building tier2
+TIER 2
+TAG building
 REQUIRES
 900 time
 INPUTS
 drone
 
 ITEM spire
-TAG building tier2
+TIER 2
+TAG building
 REQUIRES
 1800 time
 INPUTS
 drone
 
 ITEM infested_command_center
-TAG building tier2
+TIER 2
+TAG building
 REQUIRES
 queen
 enemy_command_center
 
 ITEM hive
-TAG building tier3
+TIER 3
+TAG building
 REQUIRES
 queens_nest
 1800 time
@@ -115,7 +128,8 @@ INPUTS
 lair
 
 ITEM ultralisk_cavern
-TAG building tier3
+TIER 3
+TAG building
 REQUIRES
 hive
 1200 time
@@ -123,7 +137,8 @@ INPUTS
 drone
 
 ITEM greater_spire
-TAG building tier3
+TIER 3
+TAG building
 REQUIRES
 hive
 1800 time
@@ -131,7 +146,8 @@ INPUTS
 spire
 
 ITEM nydus_canal
-TAG building tier3
+TIER 3
+TAG building
 REQUIRES
 hive
 600 time
@@ -139,13 +155,15 @@ INPUTS
 drone
 
 ITEM nydus_canal_complete
-TAG building tier3
+TIER 3
+TAG building
 INPUTS
 nydus_canal
 QUANTITY 2
 
 ITEM defiler_mound
-TAG building tier3
+TIER 3
+TAG building
 REQUIRES
 hive
 900 time
@@ -155,7 +173,8 @@ drone
 # UNITS
 
 ITEM overlord
-TAG unit tier1
+TIER 1
+TAG unit
 STARTING 1
 REQUIRES
 600 time
@@ -164,7 +183,8 @@ INPUTS
 
 
 ITEM drone
-TAG unit tier1
+TIER 1
+TAG unit
 STARTING 1
 REQUIRES
 300 time
@@ -172,7 +192,8 @@ INPUTS
 50 minerals
 
 ITEM zergling
-TAG unit tier1
+TIER 1
+TAG unit
 REQUIRES
 spawning_pool
 420 time
@@ -181,7 +202,8 @@ INPUTS
 QUANTITY 2
 
 ITEM hydralisk
-TAG unit tier1
+TIER 1
+TAG unit
 REQUIRES
 hydralisk_den
 420 time
@@ -190,7 +212,8 @@ INPUTS
 25 gas
 
 ITEM mutalisk
-TAG unit tier2
+TIER 2
+TAG unit
 REQUIRES
 spire
 600 time
@@ -199,7 +222,8 @@ INPUTS
 100 gas
 
 ITEM scourge
-TAG unit tier2
+TIER 2
+TAG unit
 REQUIRES
 spire
 450 time
@@ -209,7 +233,8 @@ INPUTS
 QUANTITY 2
 
 ITEM queen
-TAG unit tier2
+TIER 2
+TAG unit
 REQUIRES
 queens_nest
 750 time
@@ -218,7 +243,8 @@ INPUTS
 100 gas
 
 ITEM infested_terran
-TAG unit tier2
+TIER 2
+TAG unit
 REQUIRES
 infested_command_center
 600 time
@@ -227,7 +253,8 @@ INPUTS
 50 gas
 
 ITEM ultralisk
-TAG unit tier3
+TIER 3
+TAG unit
 REQUIRES
 ultralisk_cavern
 900 time
@@ -236,7 +263,8 @@ INPUTS
 200 gas
 
 ITEM guardian
-TAG unit tier3
+TIER 3
+TAG unit
 REQUIRES
 greater_spire
 600 time
@@ -246,7 +274,8 @@ mutalisk
 100 gas
 
 ITEM defiler
-TAG unit tier3
+TIER 3
+TAG unit
 REQUIRES
 defiler_mound
 750 time

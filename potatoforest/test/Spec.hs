@@ -53,7 +53,7 @@ test_identifier = describe "parser: identifier" $ do
 test_parseTextBlob :: Spec
 test_parseTextBlob = describe "parser: parseTextBlob" $ do
   let
-    end = "\nDESC stuff after here never gets parsed"
+    end = "\nDESC stuff here never gets parsed"
     tb1 = " some text\n\n\nhi\r\n\n\r\nbye\nok\nno"
     tb2 = "keywords in middle of sentence DESC TITLE ITEM is ok"
     tb3 = "space after newline is ok"
@@ -64,6 +64,29 @@ test_parseTextBlob = describe "parser: parseTextBlob" $ do
     runForestParser' parseTextBlob (tb2 <> end) `shouldBe` Right tb2
   it "handles spaces before keyword" $
     runForestParser' parseTextBlob (tb3 <> tb3End) `shouldBe` Right tb3
+
+test_parseTags :: Spec
+test_parseTags = describe "parser: parseTags" $ do
+  let
+    end = "\n stuff here never \n gets parsed"
+  it "handles many spaces" $
+    runForestParser' parseTags ("t1 t2   \t t3 t4" <> end) `shouldBe` Right ["t1","t2","t3","t4"]
+  it "fails on identifiers" $
+    runForestParser' parseTags ("t1 DESC t2" <> end) `shouldSatisfy` isLeft
+
+test_parseFilename :: Spec
+test_parseFilename = describe "parser: parseFilename" $ do
+  it "parses a filename" $
+    runForestParser' parseFilename ("not.a-virus.exe\n not parsed") `shouldBe` Right "not.a-virus.exe"
+
+test_parsePhantom :: Spec
+test_parsePhantom = describe "parser: parsePhantom" $ do
+  it "parses a omit" $
+    runForestParser' parsePhantom ("omit") `shouldBe` Right Omit
+  it "parses pass" $
+    runForestParser' parsePhantom ("pass") `shouldBe` Right Pass
+  it "fails otherwise" $
+    runForestParser' parsePhantom ("OmIt") `shouldSatisfy` isLeft
 
 
 test_runForestBlocksParser :: String -> Spec
@@ -98,5 +121,7 @@ main = do
       test_runForestBlocksParser "testing1.spec"
       test_identifier
       test_parseTextBlob
+      test_parseTags
+      test_parseFilename
     describe "Methods" $ do
       test_generateTieredItems

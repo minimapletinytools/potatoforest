@@ -1,4 +1,5 @@
 ::TODO TMRW::
+-load up SC1 tech tree D:
 -get basic mouseover nonsense working
   -make sure the mouseover box does not cover so you can still click to highlight
   DONE-do mouseout nonsense :)
@@ -29,8 +30,13 @@ IGNORE-do select all option (initial state?)
 
 ::PARSER TODO::
 -mid priority
+  -tags
+  -icon
+  -full image
+  -phantom
   -do variable name cleanup in parsers (maybe make new modules?)
 -low priority
+  -do proper encapsulation for parser methods
   -allow something like "INCLUDE helper.spec" sorta commands
     -the implementation should parse the files separately passing the state between them D:
   -figure out what default deriving on Item and Recipe didn't work as expected

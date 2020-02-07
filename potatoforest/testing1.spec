@@ -2,10 +2,15 @@ ITEM teddy_bear
 TITLE a teddy bear
 DESC a very soft and cuddly bear made of natural cotton
 TIER 5
+ICON tb.png
+FULL tb_full.png
+TAG stuffed_animal bear cute
+PHANTOM pass
 LIMIT 1
 STARTING 1
 
 ITEM apple
+
 ITEM milk
 REQUIRES apple
 ITEM shake
