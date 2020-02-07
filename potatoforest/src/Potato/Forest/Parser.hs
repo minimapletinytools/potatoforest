@@ -380,14 +380,14 @@ parseRecipe = do
   return recipe
 
 
-
-{- DELETE starting item part of item def now
+-- TODO this does nothing right now, it should store results in state
+-- make sure to document in README.md
 parseStarting :: Parser (M.Map P.ItemId Int)
 parseStarting = do
-  symbol "STARTING"
+  symbol "STARTINGITEMS"
   itemExprs <- parseBaseItemExprList
   return $ M.fromList $ map (\(BaseItemExp n i) -> (i, n)) itemExprs
--}
+
 
 line :: Parser Text
 line = lexeme $ takeWhileP (Just "line") (not . (flip elem ("\r\n" :: String)))
@@ -405,6 +405,7 @@ parseRest :: Parser ()
 parseRest =
   try (void parseItemRest *> parseRest)
   <|> try (void parseRecipe *> parseRest)
+  -- <|> try (void parseStarting *> parseRest)
   <|> eof
   <|> (line *> parseRest)
   <?> "ITEM or RECIPE"

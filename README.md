@@ -76,6 +76,12 @@ If there is a maximum limit to the number of items that can exist, you can use t
 LIMIT <integer>
 ```
 
+If the item is available at the beginning of the game (as a starting item), you can use the option `STARTING` parameter followed by the quantity:
+
+```
+STARTING 1
+```
+
 Optionally, recipes can be added to items with the following two fields:
 
 ```
@@ -100,15 +106,6 @@ PHANTOM <omit/pass/false>
 
 These are described in detail in the graph generation section.
 
-### Starting Items
-<TODO DELETE THIS SECTION, STARTING is part of item def now>
-Items available at start are specified as follows
-
-```
-STARTING
-<list of items>
-```
-
 ### Time
 The only built-in item is `time` which represents in-game elapsed time. Time is treated differently in the following ways:
 
@@ -124,10 +121,8 @@ The only built-in item is `time` which represents in-game elapsed time. Time is 
   ```
   ITEM research_token
   LIMIT 1
-  ...
+  STARTING 1
 
-  STARTING
-  research_token
   ...
 
   REQUIRES
@@ -173,7 +168,7 @@ If `PHANTOM` is set to `omit` or `pass`, the item will not show up in the render
 ### Total Requirements
 <TODO on hover, show total items required using simple solver or something>
 
-## Potato Solver
+## [UNRELEASED] Potato Solver
 The Potato Solver generates heuristics of the following forms:
 
 1. What is the "best" way for me to produce item X

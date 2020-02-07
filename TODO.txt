@@ -26,7 +26,6 @@ IGNORE-do select all option (initial state?)
 -create proper style sheet
 
 ::OTHER TODO::
--figure out how to handle time properly...
 
 ::PARSER TODO::
 -mid priority
@@ -38,6 +37,7 @@ IGNORE-do select all option (initial state?)
   -figure out how to derive Default instance rather than defining your own
 
 ::DONE::
+DONE-figure out how to handle time properly...
 DONE-fix show instances of recipes and starting items so that they don't show the items all over again
 IGNORE-add parsing for infinity keyword
 DONE-add STARTING parsing as part of item parsing and remove the other STARTING parsing
