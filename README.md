@@ -142,7 +142,7 @@ The graph generator generates a web-based graph visual of the defined item tree 
 Definitions include directives for the graph generator. Icons and full images for an item can be specified with the optional `ICON` and `IMAGE` image fields respectively.
 
 ### Tier
-The graph generator attempts to render items in rows where each row is "tier". By default, starting items that are not outputs of some recipe and time are tier `0` items and a tier `n` item is made from only tier `m` items where `m < n` where `n` is minimal. The `TIER` field can force items to be in a different tier. Doing so may force items into different tiers. In this case, a tier `n` item is made from only tier `m` items where `m < n` OR `m = n` if there is a tier `m+1` item that depends on it OR it was manually set to tier `n`.
+The graph generator attempts to render items in rows where each row is "tier". By default, items that are not outputs of some recipe are tier `0` items and a tier `n` item is made from only tier `m` items where `m < n` where `n` is minimal. The `TIER` field can force items to be in a different tier. Doing so may force items into different tiers. In this case, a tier `n` item is made from only tier `m` items where `m < n` OR `m = n` if there is a tier `m+1` item that depends on it OR it was manually set to tier `n`.
 
 For example, by default, we have:
 

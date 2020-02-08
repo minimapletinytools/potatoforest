@@ -1,27 +1,13 @@
-::TODO TMRW::
+::TODO::
 -fix tier generation to handle circular dependencies
-DONE-fix item highlighting to handle circular dependencies
--fix mouse hover
-  -or maybe you should just do the JS rendered page thing... (though this has the same circular dependency problem)
-
-FAIL-load up SC1 tech tree D:
--get basic mouseover nonsense working
-  -make sure the mouseover box does not cover so you can still click to highlight
-  DONE-do mouseout nonsense :)
-DONE-get boxes to draw to correct size
-DONE-get lines to point to correct part of box
-DONE-click should unselect
--click should highlight all dependencies recursively
+-do proper item positioning
+  -average of parent position ,then sorted to fit from left to right
+-starting items box
 -figure out how to
   -readfile (is it even possible?)
     - or upload file?
   -include image to render
   -maybe create text box?
--add helper methods to recurse up a tree and recurse down a tree
-  -you can probably do applicative to handle Nothing case or something like that.
--do proper item positioning
-  -average of parent position ,then sorted to fit from left to right
--starting items box
 
 ::STYLING MVP::
 -write better styling helpers
@@ -30,8 +16,6 @@ DONE-click should unselect
 -do greyed out item boxes
 IGNORE-do select all option (initial state?)
 -create proper style sheet
-
-::OTHER TODO::
 
 ::PARSER TODO::
 -mid priority
@@ -44,6 +28,19 @@ IGNORE-do select all option (initial state?)
   -figure out how to derive Default instance rather than defining your own
 
 ::DONE::
+DONE-fix item highlighting to handle circular dependencies
+DONE-fix mouse hover
+  IGNORE-or maybe you should just do the JS rendered page thing... (though this has the same circular dependency problem)
+FAIL-load up SC1 tech tree D:
+DONE-get basic mouseover nonsense working
+  -make sure the mouseover box does not cover so you can still click to highlight
+  DONE-do mouseout nonsense :)
+DONE-get boxes to draw to correct size
+DONE-get lines to point to correct part of box
+DONE-click should unselect
+DONE-click should highlight all dependencies recursively
+DONE-add helper methods to recurse up a tree and recurse down a tree
+  -you can probably do applicative to handle Nothing case or something like that.
 DONE-tags
 DONE-icon
 DONE-full image
