@@ -31,7 +31,7 @@ offsetPosToItemBoxCenter (a,b) = (a + fst itemSize `div` 2, b + snd itemSize `di
 -- TODO delete this
 data ItemAttr = ItemAttr {
   ia_pos :: Pos
-}
+} deriving (Show)
 
 -- | convert ItemAttr to attributes understood by reflex
 toAttrMap :: ItemAttr -> Map Text Text
@@ -53,10 +53,17 @@ data ItemMeta t = ItemMeta {
   , im_mouseout_event  :: Event t (ItemMeta t)
 }
 
+instance Eq (ItemMeta t) where
+  (==) a b = im_item a == im_item b
+
+instance Ord (ItemMeta t) where
+  (<=) a b = im_item a <= im_item b
+
 -- | map of items to their metadata
 type ItemMetaMap t = Map ItemId (ItemMeta t)
 
 data LineMeta = LineMeta {
+  -- TODO tag this by recipe for highlighting
   lm_trigger_action :: Map Text Text -> IO ()
 }
 

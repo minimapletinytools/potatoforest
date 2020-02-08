@@ -1,5 +1,10 @@
 ::TODO TMRW::
--load up SC1 tech tree D:
+-fix tier generation to handle circular dependencies
+-fix item highlighting to handle circular dependencies
+-fix mouse hover
+  -or maybe you should just do the JS rendered page thing... (though this has the same circular dependency problem)
+
+FAIL-load up SC1 tech tree D:
 -get basic mouseover nonsense working
   -make sure the mouseover box does not cover so you can still click to highlight
   DONE-do mouseout nonsense :)

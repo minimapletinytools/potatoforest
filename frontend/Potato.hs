@@ -7,6 +7,7 @@ module Potato (
 ) where
 
 import qualified Data.Map              as M
+import qualified Data.Set              as S
 import           Relude
 import           Relude.Extra.Map      (lookup)
 
@@ -24,6 +25,44 @@ import           Data.FileEmbed
 import qualified Data.Text             as T
 
 
+-- | helper method
+withItemMeta ::
+  ItemMetaMap t -- ^ all know items
+  -> ItemId -- ^ ItemId of item we want to operate on
+  -> a -- ^ result if item is not found
+  -> (ItemMeta t -> a) -- ^ function to apply to found ItemMeta
+  -> a
+withItemMeta imm iid n jf = case lookup iid imm of
+  Nothing -> n
+  Just i  -> jf i
+
+-- | traverse over items and its connections visiting each item only once collecting results
+itemTraverse ::
+  forall f t b. (Applicative f)
+  => ItemMetaMap t -- ^ all items
+  -> ItemConnectionsMap  -- ^ map to look up ItemConnections
+  -> (ItemMeta t -> f b) -- ^ action to apply
+  -> ItemMeta t -- ^ the starting item
+  -> f [b] -- ^ collected results of our actions
+itemTraverse imm icm f im' = traverse f (toList $ next S.empty (im_item im')) where
+  next :: Set (ItemMeta t) -> Item -> Set (ItemMeta t)
+  next visited item = case M.lookup (itemId item) imm of
+      -- didn't find the item, go home (this should never happen)
+      --Nothing -> visited
+      Nothing -> error $ "item not found in imm map " <> (show item)
+      Just im -> if im `S.member` visited
+        -- if we visited this node already, go home
+        then visited
+        -- otherwise, iterate through all its children after adding itself to the set of visited nodes
+        else S.foldl next (S.insert im visited) reqs where
+          reqs = case M.lookup (im_item im) icm of
+            -- no connections means nothing to fold over
+            Nothing -> S.empty
+            -- otherwise, we fold over the key set
+            Just ci -> M.keysSet ci
+
+
+
 potatomain :: IO ()
 potatomain = do
   let
@@ -32,6 +71,7 @@ potatomain = do
 
     -- parse potato
     Right fb = runForestBlocksParser (T.pack spec)
+
     tiered' = generateTieredItems (knownItems fb) (knownRecipes fb)
 
     allConnections :: ItemConnectionsMap
@@ -39,12 +79,6 @@ potatomain = do
 
     tiered :: [ItemConnectionsList]
     tiered = sortTieredItems $ tiered'
-
-    --withItemMeta :: (MonadReader r m) => ItemId -> m a -> (ItemMeta t -> m a) -> m a
-    withItemMeta :: ItemMetaMap t -> ItemId -> a -> (ItemMeta t -> a) -> a
-    withItemMeta imm iid n jf = case lookup iid imm of
-      Nothing -> n
-      Just i  -> jf i
 
     -- | helper method for rendering items
     innerMap :: (MonadWidget t m) => Int -> Int -> (Item, ItemConnections) -> m (ItemMeta t)
