@@ -11,7 +11,7 @@ module Helper (
 
 import qualified Data.Map  as M
 import           Numeric   (showFFloat)
-import           Prelude   (atan2)
+--import           Prelude   (atan2)
 import           Relude
 
 import qualified Data.Text as T
@@ -52,7 +52,7 @@ makeLineStyle :: Pos -> Pos -> Style
 makeLineStyle a b = M.fromList [
     ("left",show x <> "px")
     , ("top", show y <> "px")
-    , ("width", show (round hypotenuse) <> "px")
+    , ("width", show (round hypotenuse :: Int) <> "px")
     , ("height", show stroke <> "px")
     , ("transform", rot)
     , ("-ms-transform", rot)
@@ -68,8 +68,10 @@ makeLineStyle a b = M.fromList [
     opposite = abs (ay - by)
     hypotenuse = sqrt (adjacent*adjacent + opposite*opposite)
     offsetx = abs $ (hypotenuse - adjacent) / 2
+    x :: Int
     x = round $ if bx <= ax then bx - offsetx else ax - offsetx
     offsety = (- opposite / 2) - stroke / 2
+    y :: Int
     y = round $ if by <= ay then ay + offsety else by + offsety
     --rotVal = atan2 opposite adjacent
     radians = atan (opposite / adjacent)

@@ -132,16 +132,12 @@ potatomain = do
           -> ItemConnectionsMap  -- ^ map to look up ItemConnections
           -> ItemMeta t -- ^ the selected item in question
           -> IO ()
-        selectRecursive imm icm im = do
-          -- recursively select over all connections
-          let
-            connections = M.findWithDefault M.empty (im_item im) icm
-            lms = M.findWithDefault [] (itemId . im_item $ im) itemLineMetaMap
-          mapKeysM connections $ \item ->
-            withItemMeta imm (itemId item) blank (selectRecursive imm icm)
-          -- select the current item
-          im_trigger_action im ("class" =: "tech selected")
-          forM_ lms (\lm -> lm_trigger_action lm ("class" =: "path"))
+        selectRecursive imm icm im' = void $ itemTraverse imm icm f im' where
+          f im = do
+            let lms = M.findWithDefault [] (itemId . im_item $ im) itemLineMetaMap
+            -- select the current item
+            im_trigger_action im ("class" =: "tech selected")
+            forM_ lms (\lm -> lm_trigger_action lm ("class" =: "path"))
 
         -- recursively unselects an items and all items it depends on
         unselectRecursive ::
@@ -149,23 +145,17 @@ potatomain = do
           -> ItemConnectionsMap  -- ^ map to look up ItemConnections
           -> ItemMeta t -- ^ the selected item in question
           -> IO ()
-        unselectRecursive imm icm im = do
-          -- recursively unselect over all connections
-          let
-            connections = M.findWithDefault M.empty (im_item im) icm
-            lms = M.findWithDefault [] (itemId . im_item $ im) itemLineMetaMap
-          mapKeysM connections $ \item ->
-            withItemMeta imm (itemId item) blank (unselectRecursive imm icm)
-          -- unselect the current item
-          im_trigger_action im ("class" =: "tech")
-          forM_ lms (\lm -> lm_trigger_action lm ("class" =: "path hidden"))
+        unselectRecursive imm icm im' = void $ itemTraverse imm icm f im' where
+          f im = do
+            let lms = M.findWithDefault [] (itemId . im_item $ im) itemLineMetaMap
+            im_trigger_action im ("class" =: "tech")
+            forM_ lms (\lm -> lm_trigger_action lm ("class" =: "path hidden"))
 
-
-        -- for now, we just highlight ourself
-        simpleTrigger :: ItemMeta t -> IO ()
+        -- just highlight
+        {- simpleTrigger :: ItemMeta t -> IO ()
         simpleTrigger im = do
           putStrLn $ "you clicked " ++ show (im_item im)
-          im_trigger_action im ("class" =: "tech selected")
+          im_trigger_action im ("class" =: "tech selected") -}
 
         -- action to select an item
         selectAction :: Maybe (ItemMeta t) -> ItemMeta t -> IO ()
@@ -194,7 +184,7 @@ potatomain = do
         hoverWidgetEv ev = fmap f ev where
           f mim = case mim of
             Nothing -> blank
-            Just ev -> hoverWidget ev
+            Just im -> hoverWidget im
       --end let
 
       -- set up on click triggers (currentSelection defined later)
