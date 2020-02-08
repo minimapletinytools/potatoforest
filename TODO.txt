@@ -1,6 +1,6 @@
 ::TODO TMRW::
 -fix tier generation to handle circular dependencies
--fix item highlighting to handle circular dependencies
+DONE-fix item highlighting to handle circular dependencies
 -fix mouse hover
   -or maybe you should just do the JS rendered page thing... (though this has the same circular dependency problem)
 

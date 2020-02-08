@@ -2,6 +2,7 @@
 module Widgets (
   itemSize
   , offsetPosToItemBoxCenter
+  , offsetPosToItemBoxRight
   , ItemAttr(..)
   , toAttrMap
   , ItemMeta(..)
@@ -26,6 +27,9 @@ itemSize = (80,100)
 
 offsetPosToItemBoxCenter :: Pos -> Pos
 offsetPosToItemBoxCenter (a,b) = (a + fst itemSize `div` 2, b + snd itemSize `div` 2)
+
+offsetPosToItemBoxRight :: Pos -> Pos
+offsetPosToItemBoxRight (a,b) = (a + fst itemSize, b)
 
 -- | item attribute data
 -- TODO delete this

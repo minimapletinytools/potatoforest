@@ -173,7 +173,7 @@ potatomain = do
           -> m ()
         hoverWidget im = do
           let
-            attrs = M.fromList [("id", "tooltip2"), styleToAttr (posToStyle . offsetPosToItemBoxCenter $ (ia_pos . im_attr $ im))]
+            attrs = M.fromList [("id", "tooltip2"), styleToAttr (posToStyle . offsetPosToItemBoxRight $ (ia_pos . im_attr $ im))]
           liftIO $ print $ "HOVERING: " ++ show (im_item im)
           elAttr "div" attrs $ el "p" (text "this is a tooltip")
 
