@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Potato.Forest.Types (
   ItemId(..)
@@ -24,10 +25,10 @@ import qualified Data.Text                         as T
 
 import           Data.Default
 
-newtype ItemId = ItemId { unItemId :: T.Text } deriving (Eq, Ord, Show)
-newtype RecipeId = RecipeId { unRecipeId :: T.Text } deriving (Eq, Ord, Show)
+newtype ItemId = ItemId { unItemId :: T.Text } deriving newtype (Eq, Ord, Show, NFData)
+newtype RecipeId = RecipeId { unRecipeId :: T.Text } deriving newtype (Eq, Ord, Show, NFData)
 
-data Phantom = Normal | Omit | Pass deriving (Eq, Show)
+data Phantom = Normal | Omit | Pass deriving (Eq, Show, Generic, NFData)
 
 -- | internal types
 data Item = Item {
@@ -36,7 +37,7 @@ data Item = Item {
   , desc  :: T.Text
   , limit :: Maybe Int
   , tier  :: Maybe Int
-} deriving (Show)
+} deriving (Show, Generic, NFData)
 
 instance Ord Item where
   (<=) a b = itemId a <= itemId b
@@ -62,7 +63,7 @@ builtin_time = def {
   }
 
 -- | map of item to quantity
-newtype Inventory = Inventory { unInventory :: M.Map Item Int }
+newtype Inventory = Inventory { unInventory :: M.Map Item Int } deriving newtype (NFData)
 
 instance Show Inventory where
   show (Inventory inv) = show $ M.mapKeysWith const itemId inv
@@ -73,7 +74,7 @@ data Recipe = Recipe {
     , exclusiveRequires :: Inventory
     , inputs            :: Inventory
     , outputs           :: Inventory
-  } deriving (Show)
+  } deriving (Show, Generic, NFData)
 
 instance Ord Recipe where
   (<=) a b = recipeId a <= recipeId b
