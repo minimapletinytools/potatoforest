@@ -8,6 +8,8 @@
     - or upload file?
   -include image to render
   -maybe create text box?
+-figure out how to make potato forest an external dep or submodule (separate repo)
+-figure out how to make reflex-platform an external dep
 
 ::STYLING MVP::
 -write better styling helpers

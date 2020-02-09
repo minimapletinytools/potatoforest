@@ -51,11 +51,11 @@ findNextTier recipes allConns lowerTiers searchItems = S.filter ffn searchItems 
     -- all required items are contained in lower tiers
     Just x  -> M.foldrWithKey (\k _ acc -> acc && S.member k lowerTiers) True x
 
-generateTieredItems ::
+_generateTieredItems ::
   ItemSet -- ^ all items
   -> RecipeSet -- ^ all recipes
   -> [ItemConnectionsMap] -- ^ list of each set of Items and their ItemConnections for each tier (starting at 0)
-generateTieredItems items recipes = unfoldr getNextTieredItems (S.empty, items) where
+_generateTieredItems items recipes = unfoldr getNextTieredItems (S.empty, items) where
   allConnections = mapSetToMap (findItemConnections recipes) items
   getNextTieredItems :: (ItemSet, ItemSet) -> Maybe (ItemConnectionsMap, (ItemSet, ItemSet))
   getNextTieredItems (lowerTiers, searchItems) = r where
@@ -88,7 +88,42 @@ sortTieredItems tiers = map M.toList tiers
 
 
 
+-- would be better if we iterate from max tier down but whatever
+generateTieredItems ::
+  ItemSet -- ^ all items
+  -> RecipeSet -- ^ all recipes
+  -> [ItemConnectionsMap] -- ^ list of each set of Items and their ItemConnections for each tier (starting at 0)
+generateTieredItems items recipes = untilEmpty 0 (newGenerateTieredItems items recipes) [] where
+  allConnections = mapSetToMap (findItemConnections recipes) items
+  untilEmpty :: Int -> M.Map Int ItemSet -> [ItemConnectionsMap] -> [ItemConnectionsMap]
+  untilEmpty t tierToItem r = if M.null tierToItem
+    then r
+    else r `mappend` [mapSetToMap (\item -> M.findWithDefault M.empty item allConnections) (M.findWithDefault S.empty t tierToItem)]
 
+newGenerateTieredItems ::
+  ItemSet -- ^ all items
+  -> RecipeSet -- ^ all recipes
+  -> M.Map Int ItemSet -- ^ map of tiers to item in each tier
+newGenerateTieredItems items recipes = tierToItem where
+  allConns = mapSetToMap (findItemConnections recipes) items
+
+  -- | keep finding tiers of items until we've found all
+  untilEmpty :: ItemSet -> M.Map Item (Maybe Int) -> (ItemSet, M.Map Item (Maybe Int))
+  untilEmpty rest known = if S.null rest then (S.empty, known) else r where
+    -- take the first item, (must exist since set is non empty)
+    item = S.findMin rest
+    (_, newKnown) = findItemTier recipes allConns M.empty known item
+    newRest = rest S.\\ M.keysSet newKnown
+    r = untilEmpty newRest newKnown
+
+  (_, itemToTier) = untilEmpty items M.empty
+
+  -- Nothing is converted to tier 0
+  foldfn :: Item -> Maybe Int -> M.Map Int ItemSet -> M.Map Int ItemSet
+  foldfn item mtier acc =  M.insert t (item `S.insert` M.findWithDefault S.empty t acc) acc where
+    t = fromMaybe 0 mtier
+
+  tierToItem = M.foldrWithKey foldfn M.empty itemToTier
 
 
 -- | insertLokupWithKey except lookup is result after insertion
@@ -112,10 +147,10 @@ findItemTier ::
   RecipeSet -- ^ all recipes
   -> ItemConnectionsMap -- ^ all connections
   -> M.Map Item Int -- ^ forced tiers
-  -> M.Map Item (Maybe Int) -- ^ higher tiered items that we've already visited
+  -> M.Map Item (Maybe Int) -- ^ known tiered items that we've already visited
   -> Item -- ^ item to discover tier for
   -> (Maybe Int, M.Map Item (Maybe Int)) -- ^ tier of item and output list of all found tiers
-findItemTier recipes allCons forced higher item = r where
+findItemTier recipes allCons forced known item = r where
 
   forcedTier = M.lookup item forced
 
@@ -125,20 +160,19 @@ findItemTier recipes allCons forced higher item = r where
   foldfn x _ (accTier, stored) = (maxOrd1 accTier itemTier, newTiers) where
     (itemTier, newTiers) = (findItemTier recipes allCons forced) stored x
 
-  (maxItemTier, newTiers) ::  (Maybe Int, M.Map Item (Maybe Int)) = case M.lookup item higher of
+  (maxItemTier, newTiers) ::  (Maybe Int, M.Map Item (Maybe Int)) = case M.lookup item known of
     -- we already know the tier, go home
-    Just x -> (x, higher)
+    Just x -> (x, known)
     -- we haven't been here yet, compute its tier
     Nothing -> case M.lookup item allCons of
       -- if it has no dependencies, then it's tier 0 (or whatever it was forced to)
-      Nothing -> (newTier, M.insert item newTier higher) where
+      Nothing -> (newTier, M.insert item newTier known) where
         newTier = (maxOrd1 forcedTier (Just 0))
         -- it should never already be in the map DELETE
         --M.insertLookupWithKeyGiveFinal (\k new old -> old) item (maxOrd1 forcedTier (Just 0)) forced
-      Just conns -> M.foldrWithKey foldfn (forcedTier, M.insert item forcedTier higher) conns
+      Just conns -> M.foldrWithKey foldfn (forcedTier, M.insert item forcedTier known) conns
 
   -- debugging stuff DELETE
-  -- override with forced, I'm pretty sure this should never happen
   r = case forcedTier of
     Nothing -> (maxItemTier, newTiers)
     ft -> if ft /= maxItemTier
