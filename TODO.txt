@@ -1,3 +1,10 @@
+my tier = squash (min (parent tier), max (child tier + 1))
+acc :: M.Map Item (S.Set (Maybe Int), S.Set (Maybe Int))
+
+squash Nothing Nothing = 0
+squash Nothing (Just x) = Just x
+squash (Just x) Nothing = 0
+
 ::TODO::
 -fix tier generation to handle circular dependencies
 -do proper item positioning

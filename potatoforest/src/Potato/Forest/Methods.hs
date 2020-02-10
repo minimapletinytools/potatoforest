@@ -108,69 +108,67 @@ newGenerateTieredItems items recipes = tierToItem where
   allConns = mapSetToMap (findItemConnections recipes) items
 
   -- | keep finding tiers of items until we've found all
-  untilEmpty :: ItemSet -> M.Map Item (Maybe Int) -> (ItemSet, M.Map Item (Maybe Int))
+  untilEmpty :: ItemSet -> M.Map Item Int -> (ItemSet, M.Map Item Int)
   untilEmpty rest known = if S.null rest then (S.empty, known) else r where
     -- take the first item, (must exist since set is non empty)
     item = S.findMin rest
-    (_, newKnown) = findItemTier recipes allConns M.empty known item
+    (_, newKnown) = findItemTier recipes allConns known M.empty item
     newRest = rest S.\\ M.keysSet newKnown
-    r = untilEmpty newRest newKnown
+    -- Nothing means circular dependency with no other dependencies which is tier 0
+    r = untilEmpty newRest (M.map (fromMaybe 0) newKnown)
 
   (_, itemToTier) = untilEmpty items M.empty
 
-  -- Nothing is converted to tier 0
-  foldfn :: Item -> Maybe Int -> M.Map Int ItemSet -> M.Map Int ItemSet
-  foldfn item mtier acc =  M.insert t (item `S.insert` M.findWithDefault S.empty t acc) acc where
-    t = fromMaybe 0 mtier
+  foldfn :: Item -> Int -> M.Map Int ItemSet -> M.Map Int ItemSet
+  foldfn item t acc =  M.insert t (item `S.insert` M.findWithDefault S.empty t acc) acc
 
   tierToItem = M.foldrWithKey foldfn M.empty itemToTier
-
-
--- | insertLokupWithKey except lookup is result after insertion
--- evaluates f twice, so not as efficient as it good be, whatever
--- DELETE
-insertLookupWithKeyGiveFinal :: Ord k => (k -> a -> a -> a) -> k -> a -> Map k a -> (a, Map k a)
-insertLookupWithKeyGiveFinal f k v m = (newv, newmap) where
-  (oldv, newmap) = M.insertLookupWithKey f k v m
-  newv = case oldv of
-    Nothing   -> v
-    Just oldv -> f k v oldv
 
 maxOrd1 :: (Ord1 f, Ord a)  => f a -> f a -> f a
 maxOrd1 a b = case compare1 a b of
   GT -> a
   _  -> b
 
+promoteTier :: Maybe Int -> Maybe Int
+promoteTier Nothing  = Just 0
+promoteTier (Just x) = Just (x+1)
+
 -- TODO TEST
 -- | returns the tier of the item according to rules (see README.md)
 findItemTier ::
   RecipeSet -- ^ all recipes
   -> ItemConnectionsMap -- ^ all connections
-  -> M.Map Item Int -- ^ forced tiers
-  -> M.Map Item (Maybe Int) -- ^ known tiered items that we've already visited
+  -> M.Map Item Int -- ^ known or forced tiers
+  -> M.Map Item (Maybe Int) -- ^ items that we've already visited
   -> Item -- ^ item to discover tier for
   -> (Maybe Int, M.Map Item (Maybe Int)) -- ^ tier of item and output list of all found tiers
-findItemTier recipes allCons forced known item = r where
+findItemTier recipes allCons forced visited item = r where
 
   forcedTier = M.lookup item forced
 
   -- recurse through all dependencies returning maximal tier and new tier map
   -- and set self to maximal tier of searched items
   foldfn :: Item -> RecipeSet -> (Maybe Int, M.Map Item (Maybe Int)) -> (Maybe Int, M.Map Item (Maybe Int))
-  foldfn x _ (accTier, stored) = (maxOrd1 accTier itemTier, newTiers) where
-    (itemTier, newTiers) = (findItemTier recipes allCons forced) stored x
+  foldfn x _ (accTier, visited') = (maxOrd1 accTier itemTier, newTiers) where
+    (itemTier, newTiers) = findItemTier recipes allCons forced visited' x
 
-  (maxItemTier, newTiers) ::  (Maybe Int, M.Map Item (Maybe Int)) = case M.lookup item known of
+  (maxItemTier, newTiers) ::  (Maybe Int, M.Map Item (Maybe Int)) = case M.lookup item visited of
     -- we already know the tier, go home
-    Just x -> (x, known)
+    Just x -> (x, visited)
+
+    -- TODO need to add +1 to tier, but forcedTier already has a +1 built in
+    -- pretty sure you need to force the tier at the end thus allowing you to promote the tier...
+
+
     -- we haven't been here yet, compute its tier
     Nothing -> case M.lookup item allCons of
-      -- if it has no dependencies, then it's tier 0 (or whatever it was forced to)
-      Nothing -> (newTier, M.insert item newTier known) where
+      -- if it has no dependencies
+      Nothing -> (Nothing, M.insert item Nothing visited) where
         newTier = (maxOrd1 forcedTier (Just 0))
-        -- it should never already be in the map DELETE
-        --M.insertLookupWithKeyGiveFinal (\k new old -> old) item (maxOrd1 forcedTier (Just 0)) forced
-      Just conns -> M.foldrWithKey foldfn (forcedTier, M.insert item forcedTier known) conns
+      -- if it has dependencies, determine tier from dependencies
+      -- if we already know our own tier, add it to visited and recursively compute tier of dependencies
+      -- otherwise add self as `Nothing` to break loops and recursively compute tier of dependencies
+      Just conns -> M.foldrWithKey foldfn (forcedTier, M.insert item forcedTier visited) conns
 
   -- debugging stuff DELETE
   r = case forcedTier of
