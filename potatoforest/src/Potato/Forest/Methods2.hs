@@ -1,17 +1,13 @@
 module Potato.Forest.Methods2 (
-  helloPotato
-  , generateTieredItems
-  , sortTieredItems
-
-  , ItemConnections
-  , ItemConnectionsMap
-  , ItemConnectionsList
+  findTiers
+  , newGenerateTieredItems
 ) where
 
 import           Data.Functor.Classes              (Ord1, compare1)
 import           Relude
 import Relude.Extra.Lens
 
+import           Potato.Forest.Methods
 import           Potato.Forest.Internal.Containers
 import           Potato.Forest.Types
 
@@ -83,22 +79,6 @@ evalTier forced pt adjs disc item = if item `M.member` disc
 
     r = (r2, Right tier)
 
-
--- put self as Nothing in tier map
--- if no children
-  -- then set sef tier to Just 0
-  -- else set self tier to min (min parents - 1) (max childrentiers + 1)
--- (newtiermap, childTiers) mapaccuml (selftier) tiermap children
--- mapaccumlfn
-  -- if child is in tiermap then Nothing (loop case)
-  -- otherwise recurse
--- if (max children + 1) is Nothing
-  -- then return Nothing
-  -- else return self tier
-
-
-
-
 -- | data type containing information to compute a node's tier
 -- (parent tiers, child tiers)
 type TierFn = ([Maybe Int], [Maybe Int])
@@ -128,3 +108,43 @@ evalTierFn (ps, cs) = where
     -- if there are NO child nodes, we have no dependencies so our tier is 0
     then Just 0
     else combine_minps_maxcs (S.foldr minps Nothing ps) (S.foldr maxcs Nothing cs)
+
+-- TODO TEST
+-- | returns the tier of the item according to rules (see README.md)
+findTiers ::
+  ItemConnectionsMap -- ^ all connections
+  -> M.Map Item Int -- ^ known or forced tiers
+  -> Item -- ^ starting item (TODO get rid of this)
+  -> M.Map Item Int -- ^ all item tiers
+findItemTier allConns forced item = tiers where
+  -- first build adjacency map
+  adjs = buildAdjs allConns item M.empty
+  -- next evaluate tiers
+  (mtiers, _) = evalTier forced adjs M.empty item
+  -- all tiers should be Just otherwise it's a bug
+  !tiers = fmap fromJust mtiers
+
+
+newGenerateTieredItems ::
+  ItemSet -- ^ all items
+  -> RecipeSet -- ^ all recipes
+  -> M.Map Int ItemSet -- ^ map of tiers to item in each tier
+newGenerateTieredItems items recipes = tierToItem where
+  allConns = mapSetToMap (findItemConnections recipes) items
+
+  -- | keep finding tiers of items until we've found all
+  untilEmpty :: ItemSet -> M.Map Item Int -> (ItemSet, M.Map Item Int)
+  untilEmpty rest known = if S.null rest then (S.empty, known) else r where
+    -- take the first item, (must exist since set is non empty)
+    item = S.findMin rest
+    newKnown = findTiers allConns M.empty item
+    newRest = rest S.\\ M.keysSet newKnown
+    -- Nothing means circular dependency with no other dependencies which is tier 0
+    r = untilEmpty newRest newKnown
+
+  (_, itemToTier) = untilEmpty items M.empty
+
+  -- reverse keys/values
+  foldfn :: Item -> Int -> M.Map Int ItemSet -> M.Map Int ItemSet
+  foldfn item t acc =  M.insert t (item `S.insert` M.findWithDefault S.empty t acc) acc
+  tierToItem = M.foldrWithKey foldfn M.empty itemToTier
