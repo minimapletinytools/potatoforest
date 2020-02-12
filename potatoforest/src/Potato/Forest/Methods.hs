@@ -1,7 +1,9 @@
 module Potato.Forest.Methods (
   helloPotato
+  , findItemConnections
   , generateTieredItems
   , sortTieredItems
+
 
   , ItemConnections
   , ItemConnectionsMap
