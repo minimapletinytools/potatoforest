@@ -103,10 +103,9 @@ evalTier forced pt adjs disc item = if item `M.member` disc
 -- (parent tiers, child tiers)
 type TierFn = ([Maybe Int], [Maybe Int])
 
--- TODO rewrite
 -- | convert a fully constructed TierFn to a node's actual tier
 evalTierFn :: TierFn -> Maybe Int
-evalTierFn (ps, cs) = min_minps_maxcsp1 (S.foldr minps Nothing ps) (S.foldr maxcs Nothing cs) where
+evalTierFn (ps, cs) = where
   -- compute the min of two parent tiers
   minps :: Maybe Int -> Maybe Int -> Maybe Int
   minps Nothing p2 = p2
@@ -116,16 +115,16 @@ evalTierFn (ps, cs) = min_minps_maxcsp1 (S.foldr minps Nothing ps) (S.foldr maxc
   maxcs :: Maybe Int -> Maybe Int -> Maybe Int
   maxcs a b = maxOrd1 a b
   -- compute the new tier from min/max of parent/child tiers
-  min_minps_maxcs :: Maybe Int -> Maybe Int -> Int
+  combine_minps_maxcs :: Maybe Int -> Maybe Int -> Int
   -- No parent or children means we hit a loop, so our tier is 0
-  min_minps_maxcs Nothing Nothing = Just 0
+  combine_minps_maxcs Nothing Nothing = Just 0
   -- Nothing in child tier means use the parent tier
-  min_minps_maxcs minps Nothing = minps
+  combine_minps_maxcs minps Nothing = (-1) <$> minps
   -- no parent tiers means we use the child tier plus 1
-  min_minps_maxcs Nothing maxcs = (+1) <$> maxcs
-  -- otherwise just regular min
-  min_minps_maxcs minps maxcs   = minOrd1 minps ((+1) <$> maxcs)
+  combine_minps_maxcs Nothing maxcs = (+1) <$> maxcs
+  -- otherwise take the min
+  combine_minps_maxcs minps maxcs = minOrd1 ((-1) <$> minps) ((+1) <$> maxcs)
   r = if null cs
     -- if there are NO child nodes, we have no dependencies so our tier is 0
     then Just 0
-    else min_minps_maxcsp1 (M.foldr minps Nothing ps) (foldr1 maxcs cs)
+    else combine_minps_maxcs (S.foldr minps Nothing ps) (S.foldr maxcs Nothing cs)
