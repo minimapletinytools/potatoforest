@@ -220,18 +220,38 @@ newline: native
 #
 # No language extensions are enabled by default.
 language_extensions:
-  - InstanceSigs
-  - LambdaCase
-  - OverloadedStrings
-  - GADTs
-  - DeriveFunctor
+  - ApplicativeDo
+  - BangPatterns
+  - DataKinds
+  - ConstraintKinds
   - DeriveFoldable
-  - DeriveGeneric
-  - DeriveAnyClass
+  - DeriveFunctor
   - DeriveTraversable
-  - FlexibleInstances
+  - DeriveGeneric
+  - DeriveLift
+  - DeriveTraversable
+  - DerivingStrategies
+  - EmptyCase
+  - ExistentialQuantification
   - FlexibleContexts
-  - ScopedTypeVariables
-  - MultiWayIf
-  - TupleSections
+  - FlexibleInstances
+  - FunctionalDependencies
+  - GADTs
+  - GeneralizedNewtypeDeriving
+  - InstanceSigs
+  - KindSignatures
+  - LambdaCase
   - MultiParamTypeClasses
+  - MultiWayIf
+  - NamedFieldPuns
+  - OverloadedStrings
+  - PatternSynonyms
+  - RankNTypes
+  - ScopedTypeVariables
+  - StandaloneDeriving
+  - TupleSections
+  - TypeApplications
+  - TypeFamilies
+  - TypeFamilyDependencies
+  - TypeOperators
+  - NoImplicitPrelude

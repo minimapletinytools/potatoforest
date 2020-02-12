@@ -5,14 +5,25 @@ module Potato.Forest.Methods2 (
 
 import           Data.Functor.Classes              (Ord1, compare1)
 import           Relude
-import Relude.Extra.Lens
+import           Relude.Extra.Lens
 
-import           Potato.Forest.Methods
 import           Potato.Forest.Internal.Containers
+import           Potato.Forest.Methods
 import           Potato.Forest.Types
 
 import qualified Data.Map                          as M
 import qualified Data.Set                          as S
+
+maxOrd1 :: (Ord1 f, Ord a)  => f a -> f a -> f a
+maxOrd1 a b = case compare1 a b of
+  GT -> a
+  _  -> b
+
+minOrd1 :: (Ord1 f, Ord a)  => f a -> f a -> f a
+minOrd1 a b = case compare1 a b of
+  LT -> a
+  _  -> b
+
 
 -- | data type containing information to compute a node's tier
 -- (parent, child)
@@ -36,10 +47,8 @@ buildAdjs allCons item visited = if item `S.member` acc
     foldFn1 child acc = buildAdjs allCons acc child
     r1 = S.foldr foldFn1 r0 children
     -- finally add ourselves to each child as a parent
-    foldFn2 child acc = M.insertWith (over fst (<>)) child ([item]) acc
+    foldFn2 child acc = M.insertWith (over fst (<>)) child [item] acc
     r = S.foldr foldFn2 r1 children
-
-
 
 -- | evaluate the tier of an item
 -- returns (tier, new map with tier inserted)
@@ -85,7 +94,7 @@ type TierFn = ([Maybe Int], [Maybe Int])
 
 -- | convert a fully constructed TierFn to a node's actual tier
 evalTierFn :: TierFn -> Maybe Int
-evalTierFn (ps, cs) = where
+evalTierFn (ps, cs) = r where
   -- compute the min of two parent tiers
   minps :: Maybe Int -> Maybe Int -> Maybe Int
   minps Nothing p2 = p2
@@ -93,7 +102,7 @@ evalTierFn (ps, cs) = where
   minps p1 p2      = minOrd1 p1 p2
   -- compute the max of two child tiers
   maxcs :: Maybe Int -> Maybe Int -> Maybe Int
-  maxcs a b = maxOrd1 a b
+  maxcs= maxOrd1
   -- compute the new tier from min/max of parent/child tiers
   combine_minps_maxcs :: Maybe Int -> Maybe Int -> Int
   -- No parent or children means we hit a loop, so our tier is 0
