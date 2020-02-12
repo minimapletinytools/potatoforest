@@ -14,7 +14,7 @@ INPUTS t1_c1
 ITEM t1_c3
 INPUTS t1_c2
 
-# another track (depends on first one to avoid islands for now, TODO change)
+# track 2 (depends on first one to avoid islands for now, TODO change)
 ITEM t2_a
 INPUTS t1_a
 
@@ -35,6 +35,7 @@ INPUTS t2_c1
 ITEM t2_d
 INPUTS t2_b2 t2_c1
 
-# 1 item cycle, should be tier 1
+# track 3 (depends on first one to avoid islands for now, TODO change)
+1 item cycle, should be tier 1
 ITEM t3_a
 INPUTS t1_a t3_a
