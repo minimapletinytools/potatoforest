@@ -6,6 +6,7 @@ squash Nothing (Just x) = Just x
 squash (Just x) Nothing = 0
 
 ::TODO::
+-Parsing ItemExp should fail entire parser if it finds items that don't exist
 -fix tier generation to handle circular dependencies
 -do proper item positioning
   -average of parent position ,then sorted to fit from left to right

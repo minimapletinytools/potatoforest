@@ -32,9 +32,9 @@ ITEM t2_c2
 INPUTS t2_c1
 
 ITEM t2_d
-INPUTS t2_b2 t2_c1 time
+INPUTS
+t2_b2 t2_c1 time
 
-# track 3
-1 item cycle, should be tier 1
+# track 3, 1 item cycle, should be tier 1
 ITEM t3_a
 INPUTS t3_a
