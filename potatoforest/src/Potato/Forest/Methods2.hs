@@ -141,19 +141,23 @@ evalTier forced adjs mct disc item = if item `M.member` disc
     -- also add children that are also eventual parents of this item
     -- note that this is the same as parents that are eventual children of this item
     -- so we don't need to add parents that are eventual children of this item to children (nor do we even know if this is the case or not)
+    -- note that in 1 and 2 node cycle cases, a parent will appear twice or something like that, which is no big deal
+    -- TODO is this step even necessary?
     psts = rights csts' <> lefts psts'
 
     -- create a thunk for our tier
     tier = trace ("evalTierFn " <> show item <> " " <> show (fmap isNothing psts, fmap isNothing csts) ) $ evalTierFn (psts, csts)
     -- and put it in our output results
     r3 = M.insert item (Just tier) r2
-    r = if null psts || any isNothing psts
-      -- if no parents or any parent is Nothing, return Nothing indicating our tier is dependent on other nodes
-      then (r3, Left Nothing)
-      else if not (null csts) && all isNothing csts
+    r = if null csts
+      then (r3, Left (Just tier))
+      else if all isNothing csts
         -- if there are children and they are all Nothing, return Nothing indicating we are in a loop
         then (r3, Left Nothing)
-        else (r3, Left (Just tier))
+        else if null psts || any isNothing psts
+          -- if no parents or any parent is Nothing, return Nothing indicating our tier is dependent on other nodes
+          then (r3, Left Nothing)
+          else (r3, Left (Just tier))
 
 
 -- | data type containing information to compute a node's tier
