@@ -16,10 +16,10 @@ import           Potato.Forest.Internal.Containers
 import           Potato.Forest.Methods
 import           Potato.Forest.Types
 
+import qualified Data.List                         as L
 import qualified Data.Map                          as M
 import           Data.Maybe
 import qualified Data.Set                          as S
-import qualified Data.List as L
 
 -- Notation/Termionology:
 -- A -> B means "A depends on B"
@@ -88,13 +88,13 @@ clearInTuple l toClear clearFrom adjs = M.adjust (over l (L.delete toClear)) cle
 
 clearItemFromChildren :: Item -> M.Map Item Adjs -> M.Map Item Adjs
 clearItemFromChildren parent adjs = case M.lookup parent adjs of
-  Nothing -> adjs
+  Nothing      -> adjs
   -- go through children and remove parent
   Just (_, cs) -> foldr (clearInTuple _1 parent) adjs cs
 
 clearItemFromParents :: Item -> M.Map Item Adjs -> M.Map Item Adjs
 clearItemFromParents child adjs = case M.lookup child adjs of
-  Nothing -> adjs
+  Nothing      -> adjs
   -- go through parents and remove child
   Just (ps, _) -> foldr (clearInTuple _2 child) adjs ps
 

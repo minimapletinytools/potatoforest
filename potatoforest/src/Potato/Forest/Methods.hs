@@ -1,6 +1,7 @@
 module Potato.Forest.Methods (
   helloPotato
   , findItemConnections
+  , makeItemConnectionsMap
   , generateTieredItems
   , sortTieredItems
 
@@ -38,6 +39,9 @@ findItemConnections :: RecipeSet -> Item -> ItemConnections
 findItemConnections recipes item = r where
   recipes' = S.filter (\recipe -> item `M.member` unInventory (outputs recipe)) recipes
   r = S.foldl addRecipeToItemConnections M.empty recipes'
+
+makeItemConnectionsMap :: ItemSet -> RecipeSet -> ItemConnectionsMap
+makeItemConnectionsMap items recipes = mapSetToMap (findItemConnections recipes) items
 
 -- | does not handle forced tiers yet
 findNextTier ::
