@@ -135,6 +135,7 @@ evalTier forced adjs mct disc item = if item `M.member` disc
     -- note that this is the same as parents that are eventual children of this item
     -- so we don't need to add parents that are eventual children of this item to children (nor do we even know if this is the case or not)
     psts = rights csts' <> lefts psts'
+
     -- create a thunk for our tier
     tier = trace ("evalTierFn " <> show item <> " " <> show (fmap isNothing psts, fmap isNothing csts) ) $ evalTierFn (psts, csts)
     -- and put it in our output results
@@ -167,8 +168,8 @@ evalTierFn (ps, cs) = r where
   combine_minps_maxcs :: Maybe Int -> Maybe Int -> Int
   -- No fixed pt in both parent and child, this means we hit a loop, so our tier is 0
   combine_minps_maxcs Nothing Nothing       = 0
-  -- Nothing in child tier means use the parent tier but don't go lower than 0
-  combine_minps_maxcs (Just mps) Nothing    = max 0 $ mps - 1
+  -- Nothing in child means we're in a loop
+  combine_minps_maxcs (Just mps) Nothing    = mps
   -- no parent tiers means we use the child tier plus 1
   combine_minps_maxcs Nothing (Just mcs)    = mcs + 1
   -- otherwise take the min (parent pushes children down, but no further than 0)
