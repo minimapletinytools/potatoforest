@@ -2,19 +2,24 @@ module Potato.Forest.MethodsSpec (
   spec
 ) where
 
-import Potato.Forest.ParserSpec hiding (spec)
+import           Potato.Forest.ParserSpec hiding (spec)
 
-import qualified Data.Map                          as M
-import qualified Data.Set                          as S
 import           Data.Default
+import qualified Data.Map                 as M
+import qualified Data.Set                 as S
+import qualified Data.Text.Lazy           as LT
+import           Text.Pretty.Simple
 
-import           Test.HUnit.Lang
-import           Relude
-import           Test.Hspec
 import           Potato.Forest.Methods
 import           Potato.Forest.Methods2
 import           Potato.Forest.Parser
 import           Potato.Forest.Types
+import           Relude
+import           Test.Hspec
+import           Test.HUnit.Lang
+
+trace_pShow :: (Show a) => a -> b -> b
+trace_pShow x = trace (LT.unpack (pShow x))
 
 -- | makes test items with prefix
 makeItemsForTest :: Text -> Int -> [Item]
@@ -86,6 +91,34 @@ test_buildAdjs = describe "buildAdjs" $ do
   it "behaves as expected in basic test case" $ do
     buildAdjs icm a M.empty `shouldBe` expected
 
+test_evalTierFn :: Spec
+test_evalTierFn = describe "evalTierFn" $ do
+  let
+    empty = []
+    allNothing = [Nothing, Nothing, Nothing]
+    onlyOne = [Just 1]
+    onlyFive = [Just 5]
+    someNothing = onlyOne <> allNothing
+  it "always tier 0 when children are empty" $ do
+    evalTierFn (empty, empty) `shouldBe` 0
+    evalTierFn (allNothing, empty) `shouldBe` 0
+    evalTierFn (onlyFive, empty) `shouldBe` 0
+  it "having no parents is same as having some parent that is nothing" $ do
+    evalTierFn ([], allNothing) `shouldBe` evalTierFn (allNothing, allNothing)
+    evalTierFn ([], allNothing) `shouldBe` evalTierFn (someNothing, allNothing)
+  it "if all children are nothing and some parent is nothing, we are in a base loop" $ do
+    evalTierFn (allNothing, allNothing) `shouldBe` 0
+    evalTierFn (someNothing, allNothing) `shouldBe` 0
+  it "child tier + 1 when parents are all nothing" $ do
+    evalTierFn (allNothing, onlyOne) `shouldBe` 2
+    evalTierFn (allNothing, onlyFive) `shouldBe` 6
+  it "is bounded by parent tier appropriately" $ do
+    evalTierFn (onlyOne, onlyOne) `shouldBe` 1
+    evalTierFn (onlyFive, onlyOne) `shouldBe` 2
+  it "parent tier can not push tier lower than max child tier" $ do
+    evalTierFn (onlyOne, onlyFive) `shouldBe` 5
+
+
 spec :: Spec
 spec = do
   describe "Methods" $ do
@@ -93,3 +126,4 @@ spec = do
   describe "Methods2" $ do
     test_buildAdjs
     test_clearInTuple
+    test_evalTierFn

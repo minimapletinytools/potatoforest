@@ -3,6 +3,7 @@ module Potato.Forest.Methods2 (
   , newGenerateTieredItems
 
   -- exported for testing
+  , evalTierFn
   , buildAdjs
   , clearItemFromChildren
   , clearItemFromParents
@@ -178,8 +179,8 @@ evalTierFn (ps, cs) = r where
   combine_minps_maxcs (Just mps) Nothing    = mps
   -- no parent tiers means we use the child tier plus 1
   combine_minps_maxcs Nothing (Just mcs)    = mcs + 1
-  -- otherwise take the min (parent pushes children down, but no further than 0)
-  combine_minps_maxcs (Just mps) (Just mcs) = max 0 $ min (mps - 1) (mcs + 1)
+  -- otherwise take the min (parent pushes children down, but no further than its children)
+  combine_minps_maxcs (Just mps) (Just mcs) = max mcs $ min (mps - 1) (mcs + 1)
   r = if null cs
     -- if there are NO child nodes, we have no dependencies so our tier is 0
     -- N.B. this is not the same as "Nothing"
