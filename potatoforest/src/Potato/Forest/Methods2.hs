@@ -168,7 +168,7 @@ evalTierFn (ps, cs) = r where
   combine_minps_maxcs :: Maybe Int -> Maybe Int -> Int
   -- No fixed pt in both parent and child, this means we hit a loop, so our tier is 0
   combine_minps_maxcs Nothing Nothing       = 0
-  -- Nothing in child means we're in a loop
+  -- Nothing in child means we're in a loop, use the same tier
   combine_minps_maxcs (Just mps) Nothing    = mps
   -- no parent tiers means we use the child tier plus 1
   combine_minps_maxcs Nothing (Just mcs)    = mcs + 1
