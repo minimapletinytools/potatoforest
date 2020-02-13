@@ -14,9 +14,8 @@ INPUTS t1_c1
 ITEM t1_c3
 INPUTS t1_c2
 
-# track 2 (depends on first one to avoid islands for now, TODO change)
+# track 2
 ITEM t2_a
-INPUTS t1_a
 
 # simple 2 item cycle, should be tier 2
 ITEM t2_b1
@@ -33,9 +32,9 @@ ITEM t2_c2
 INPUTS t2_c1
 
 ITEM t2_d
-INPUTS t2_b2 t2_c1
+INPUTS t2_b2 t2_c1 time
 
-# track 3 (depends on first one to avoid islands for now, TODO change)
+# track 3
 1 item cycle, should be tier 1
 ITEM t3_a
-INPUTS t1_a t3_a
+INPUTS t3_a
