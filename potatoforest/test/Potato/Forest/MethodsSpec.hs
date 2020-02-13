@@ -34,8 +34,11 @@ test_generateTieredItems = describe "generateTieredItems" $ do
     withFile "tier_simple.spec" $ \blocks ->
       newGenerateTieredItems (knownItems blocks) (knownRecipes blocks) `shouldSatisfy` flip deepseq True
         --generateTieredItems itemSet recipeSet `shouldSatisfy` (\x -> trace (LT.unpack (pShow x)) $ True)
-  it ("handles circular case") $ do
+  it ("handles simple circular case") $ do
     withFile "tier_circular.spec" $ \blocks ->
+      newGenerateTieredItems (knownItems blocks) (knownRecipes blocks) `shouldSatisfy` flip deepseq True
+  it ("handles hard circular case") $ do
+    withFile "tier_circular_hard.spec" $ \blocks ->
       newGenerateTieredItems (knownItems blocks) (knownRecipes blocks) `shouldSatisfy` flip deepseq True
 
 -- Method2 stuff
