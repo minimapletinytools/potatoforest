@@ -5,7 +5,7 @@ module Potato.Forest.Internal.Containers (
   , lookup
 ) where
 
-import Relude
+import           Relude
 
 -- importing internal gives us access too Map and Set ctors
 import qualified Data.Map.Internal as M
@@ -26,6 +26,7 @@ map_keys_forM m f = M.foldrWithKey (\k _ acc -> (:) <$> f k <*> acc) (return [])
 
 -- Notably, the method Relude.Extra.Map.lookup just returns the argument, not the item contained in the set
 lookup :: Ord a => a -> S.Set a -> Maybe a
+-- why is this strict in first argument? idk I copied it...
 lookup !_ S.Tip = Nothing
 lookup x (S.Bin _ y l r)
   | x == y = Just y

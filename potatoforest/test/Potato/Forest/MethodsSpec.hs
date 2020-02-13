@@ -34,6 +34,7 @@ test_generateTieredItems = describe "generateTieredItems" $ do
       r <- parseFile filename
       case r of
         Nothing     -> assertFailure "could not read file"
+        --Just blocks -> trace_pShow blocks $ f blocks
         Just blocks -> f blocks
   it ("handles simple case ok") $ do
     withFile "tier_simple.spec" $ \blocks ->
@@ -44,7 +45,7 @@ test_generateTieredItems = describe "generateTieredItems" $ do
       newGenerateTieredItems (knownItems blocks) (knownRecipes blocks) `shouldSatisfy` flip deepseq True
   it ("handles hard circular case") $ do
     withFile "tier_circular_hard.spec" $ \blocks ->
-      newGenerateTieredItems (knownItems blocks) (knownRecipes blocks) `shouldSatisfy` flip deepseq True
+      newGenerateTieredItems (knownItems blocks) (knownRecipes blocks) `shouldSatisfy` (\x -> trace (LT.unpack (pShow x)) $ True)
 
 -- Method2 stuff
 test_clearInTuple :: Spec
