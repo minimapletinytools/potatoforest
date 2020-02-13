@@ -43,33 +43,40 @@ _2 :: Lens' (a,b) b
 _2 f (a, b) = fmap (\b' -> (a, b')) (f b)
 
 -- | data type containing information to compute a node's tier
--- (parent, child)
+-- (parents, children)
 type Adjs = ([Item], [Item])
 
--- |
+-- | fold method to convert ItemConnectionsMap into Adjs
 buildAdjs ::
   ItemConnectionsMap -- ^ all connections
   -> Item -- ^ starting item to compute adjacencies for
   -> M.Map Item Adjs -- ^ accumulated map of adjancies
   -> M.Map Item Adjs -- ^ new map of adjacencies
-buildAdjs allCons item visited = if item `M.member` visited
+buildAdjs allConns item visited = if item `M.member` visited
   -- if we've been here before, then there's nothing to do
   then visited
   else r where
     -- list of our children
     children :: [Item]
-    children = S.toList . M.keysSet $ M.findWithDefault M.empty item allCons
+    children = S.toList . M.keysSet $ M.findWithDefault M.empty item allConns
     -- add ourselves to visited nodes
     r0 = M.insert item ([], children) visited
     -- recursively compute Adjs for our children
     foldFn1 :: Item -> Map Item Adjs -> Map Item Adjs
-    foldFn1 child acc = buildAdjs allCons child acc
+    foldFn1 child acc = buildAdjs allConns child acc
     r1 = foldr foldFn1 r0 children
     -- finally add ourselves to each child as a parent
     foldFn2 :: Item -> Map Item Adjs -> Map Item Adjs
     foldFn2 child acc = M.alter (Just . over _1 ([item]<>) . fromMaybe ([],[])) child acc
-    r :: M.Map Item Adjs
-    r = foldr foldFn2 r1 children
+    r2 = foldr foldFn2 r1 children
+    -- clear items we've visited already
+    -- (inefficient but whatever)
+    newAllConns = M.difference allConns r2
+    -- recursively call this function if there's anything left
+    -- why is there only a partial version of M.findMin -__-
+    r = if M.null newAllConns
+      then r2
+      else buildAdjs newAllConns (fst $ M.findMin newAllConns) r2
 
 clearInTuple ::
   Lens' ([Item],[Item]) [Item]
@@ -108,15 +115,15 @@ evalTier forced adjs mct disc item = if item `M.member` disc
     -- (note, if not found, it must be an isolated node)
     (ps, cs) = M.findWithDefault ([],[]) item adjs
     -- put self as Nothing in disc to indicate we are computing it
-    r0 = M.insert item Nothing disc
+    !r0 = trace ("eval tier " <> show item <> " " <> show (ps, cs)) $ M.insert item Nothing disc
     -- remove self from child's parents before recursing
     adjs1 = clearItemFromChildren item adjs
     -- recursively call in all children, pass in a our own tier as a thunk
-    (r1, csts'') = mapAccumR (evalTier forced adjs (Just $ Left tier)) r0 cs
+    (r1, csts'') = mapAccumR (evalTier forced adjs1 (Just $ Left tier)) r0 cs
     -- remove self from parent's children (yes adjs, not adjs1, though both would work)
     adjs2 = clearItemFromParents item adjs
     -- recursively call in all parents, pass in a our own tier as a thunk
-    (r2, psts'') = mapAccumR (evalTier forced adjs (Just $ Right tier)) r1 ps
+    (r2, psts'') = mapAccumR (evalTier forced adjs2 (Just $ Right tier)) r1 ps
     -- add caller's tier to parent or children
     (psts', csts') = fromMaybe (psts'', csts'') $ flip fmap mct $ \case
       Left x -> (Left x:psts'',csts'')
@@ -129,9 +136,11 @@ evalTier forced adjs mct disc item = if item `M.member` disc
     -- so we don't need to add parents that are eventual children of this item to children (nor do we even know if this is the case or not)
     psts = rights csts' <> map Just (lefts psts')
     -- create a thunk for our tier
-    tier = evalTierFn (psts, csts)
+    tier = trace ("evalTierFn " <> show item <> " " <> show (length psts, length csts)<> " " <> show (length ps, length cs)) $ evalTierFn (psts, csts)
+    -- and put it in our output results
+    r3 = M.insert item (Just tier) r2
     -- return our accumulated visited nodes and our tier
-    r = (r2, Left tier)
+    r = (r3, Left tier)
 
 -- | data type containing information to compute a node's tier
 -- (parent tiers, child tiers)
@@ -160,7 +169,8 @@ evalTierFn (ps, cs) = r where
   combine_minps_maxcs (Just mps) (Just mcs) = min (mps - 1) (mcs + 1)
   r = if null cs
     -- if there are NO child nodes, we have no dependencies so our tier is 0
-    then 0
+    -- N.B. this is not the same as "Nothing"
+    then trace "got to the end" $ 0
     else combine_minps_maxcs (foldr minps Nothing ps) (foldr maxcs Nothing cs)
 
 -- TODO TEST
@@ -176,7 +186,7 @@ findTiers allConns forced item = tiers where
   -- next evaluate tiers
   (mtiers, _) = evalTier forced adjs Nothing M.empty item
   -- all tiers should be Just otherwise it's a bug
-  !tiers = fmap fromJust mtiers
+  !tiers = trace (show mtiers) $ fmap fromJust mtiers
 
 
 newGenerateTieredItems ::
@@ -188,11 +198,11 @@ newGenerateTieredItems items recipes = tierToItem where
 
   -- | keep finding tiers of items until we've found all
   untilEmpty :: ItemSet -> M.Map Item Int -> (ItemSet, M.Map Item Int)
-  untilEmpty rest known = if S.null rest then (S.empty, known) else r where
+  untilEmpty rest known = if S.null rest then trace ("until empty done") $ (S.empty, known) else r where
     -- take the first item, (must exist since set is non empty)
-    item = S.findMin rest
+    item = trace ("until empty") $ S.findMin rest
     newKnown = findTiers allConns M.empty item
-    newRest = rest S.\\ M.keysSet newKnown
+    newRest = trace ("until empty done " <> show (M.size newKnown)) $ rest S.\\ M.keysSet newKnown
     -- Nothing means circular dependency with no other dependencies which is tier 0
     r = untilEmpty newRest newKnown
 

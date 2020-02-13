@@ -5,6 +5,6 @@ INPUTS teddy_bear
 ITEM milk
 INPUTS apple
 ITEM shake
-INPUTS apple
+INPUTS milk
 ITEM blender
 INPUTS shake
