@@ -136,16 +136,18 @@ evalTier forced adjs mct !process !disc item
   -- we aren't processing this node and we know the answer already!
   | Just x <- M.lookup item disc = trace ("hit disc: " <> show item) $ (disc, Left (Just x))
   | otherwise = trace ("hit standard: " <> show item) $ r where
-    -- (note, if not found, it must be an isolated node)
-    (ps, cs) = M.findWithDefault ([],[]) item adjs
+
+    -- remove self as parent from children first because this node may be its own parent (which causes an infinite loop)
+    adjsC = clearItemFromChildren item adjs
+    -- (note, if not found, it must be an isolated node, sad)
+    (ps, cs) = M.findWithDefault ([],[]) item adjsC
+
     -- put thunk to our own tier in disc
     d0 = trace ("eval tier " <> show item <> " " <> show (ps, cs)) $ M.insert item tier disc
-    -- remove self from child's parents before recursing
-    adjsC = clearItemFromChildren item adjs
     -- recursively call in all children, add self to processing nodes before calling
     (d1, csts'') = mapAccumR (evalTier forced adjsC (Just $ Left tier) (S.insert item process)) d0 cs
-    -- remove self from parent's children before recursing
-    adjsP = clearItemFromParents item adjsC
+    -- remove self from parents before recursing
+    adjsP = (clearItemFromParents item adjsC)
     -- recursively call in all parents, pass in a our own tier as a thunk
     (d2, psts'') = mapAccumR (evalTier forced adjsP (Just $ Right tier) process) d1 ps
     -- add caller's tier to parent or children
