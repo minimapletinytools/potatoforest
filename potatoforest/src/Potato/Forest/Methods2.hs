@@ -167,12 +167,12 @@ evalTierFn (ps, cs) = r where
   combine_minps_maxcs :: Maybe Int -> Maybe Int -> Int
   -- No fixed pt in both parent and child, this means we hit a loop, so our tier is 0
   combine_minps_maxcs Nothing Nothing       = 0
-  -- Nothing in child tier means use the parent tier
-  combine_minps_maxcs (Just mps) Nothing    = mps - 1
+  -- Nothing in child tier means use the parent tier but don't go lower than 0
+  combine_minps_maxcs (Just mps) Nothing    = max 0 $ mps - 1
   -- no parent tiers means we use the child tier plus 1
   combine_minps_maxcs Nothing (Just mcs)    = mcs + 1
-  -- otherwise take the min
-  combine_minps_maxcs (Just mps) (Just mcs) = min (mps - 1) (mcs + 1)
+  -- otherwise take the min (parent pushes children down, but no further than 0)
+  combine_minps_maxcs (Just mps) (Just mcs) = max 0 $ min (mps - 1) (mcs + 1)
   r = if null cs
     -- if there are NO child nodes, we have no dependencies so our tier is 0
     -- N.B. this is not the same as "Nothing"
@@ -203,16 +203,16 @@ newGenerateTieredItems items recipes = tierToItem where
   allConns = mapSetToMap (findItemConnections recipes) items
 
   -- | keep finding tiers of items until we've found all
-  untilEmpty :: ItemSet -> M.Map Item Int -> (ItemSet, M.Map Item Int)
-  untilEmpty rest known = if S.null rest then trace ("until empty done") $ (S.empty, known) else r where
+  untilEmpty :: ItemSet -> M.Map Item Int -> M.Map Item Int
+  untilEmpty rest known = if S.null rest then trace ("until empty done" <> show (M.size known)) $ known else r where
     -- take the first item, (must exist since set is non empty)
     item = trace ("until empty") $ S.findMin rest
-    newKnown = findTiers allConns M.empty item
-    newRest = trace ("until empty done " <> show (M.size newKnown)) $ rest S.\\ M.keysSet newKnown
+    newKnown = findTiers allConns M.empty item `M.union` known
+    newRest = rest S.\\ M.keysSet newKnown
     -- Nothing means circular dependency with no other dependencies which is tier 0
     r = untilEmpty newRest newKnown
 
-  (_, itemToTier) = untilEmpty items M.empty
+  itemToTier = untilEmpty items M.empty
 
   -- reverse keys/values
   foldfn :: Item -> Int -> M.Map Int ItemSet -> M.Map Int ItemSet
