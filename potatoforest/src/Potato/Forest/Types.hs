@@ -25,8 +25,8 @@ import qualified Data.Text                         as T
 
 import           Data.Default
 
-newtype ItemId = ItemId { unItemId :: T.Text } deriving newtype (Eq, Ord, Show, NFData)
-newtype RecipeId = RecipeId { unRecipeId :: T.Text } deriving newtype (Eq, Ord, Show, NFData)
+newtype ItemId = ItemId { unItemId :: T.Text } deriving newtype (Eq, Ord, Show, IsString, NFData)
+newtype RecipeId = RecipeId { unRecipeId :: T.Text } deriving newtype (Eq, Ord, Show, IsString, NFData)
 
 data Phantom = Normal | Omit | Pass deriving (Eq, Show, Generic, NFData)
 
@@ -37,7 +37,11 @@ data Item = Item {
   , desc  :: T.Text
   , limit :: Maybe Int
   , tier  :: Maybe Int
-} deriving (Show, Generic, NFData)
+} deriving (Generic, NFData)
+
+-- temporary for testing
+instance Show Item where
+  show item = show (itemId item)
 
 instance Ord Item where
   (<=) a b = itemId a <= itemId b

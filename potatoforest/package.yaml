@@ -82,6 +82,7 @@ library:
   source-dirs: src
   exposed-modules:
     - Potato.Forest.Methods
+    - Potato.Forest.Methods2
     - Potato.Forest.Parser
     - Potato.Forest.Types
 executables:

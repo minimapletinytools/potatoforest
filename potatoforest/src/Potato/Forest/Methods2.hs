@@ -3,9 +3,9 @@ module Potato.Forest.Methods2 (
   , newGenerateTieredItems
 
   -- exported for testing
-  buildAdjs
-  , clearInChildren
-  , clearInParents
+  , buildAdjs
+  , clearItemFromChildren
+  , clearItemFromParents
 ) where
 
 import           Data.Functor.Classes              (Ord1, compare1)
@@ -19,6 +19,7 @@ import           Potato.Forest.Types
 import qualified Data.Map                          as M
 import           Data.Maybe
 import qualified Data.Set                          as S
+import qualified Data.List as L
 
 -- Notation/Termionology:
 -- A -> B means "A depends on B"
@@ -70,78 +71,37 @@ buildAdjs allCons item visited = if item `M.member` visited
     r :: M.Map Item Adjs
     r = foldr foldFn2 r1 children
 
--- | evaluate the tier of an item
--- returns (tier, new map with tier inserted)
-evalTier ::
-  M.Map Item Int -- ^ forced tiers
-  -> M.Map Item Adjs -- ^ map of adjancencies made in the previous step
-  -> Either Int Int -- ^ left is parent of this node's tier, right is child of this node's tier
-  -> M.Map Item (Maybe Int) -- ^ accumulating map of node tiers (or Nothing if still being computed)
-  -> Item -- ^ current item we're processing
-  -- TODO pretty sure Maybe not necessary in left case
-  -> (M.Map Item (Maybe Int), Either (Maybe Int) (Maybe Int)) -- ^ (new accumulating map, our own tier (left if just parent or child, right if eventual parent and child, Nothing if no fixed pt))
-evalTier forced adjs pt disc item = if item `M.member` disc
-  -- we've been here before, `Right _` indicates no fixed pt and both parent and child
-  then (disc, Right (M.lookup item forced))
-  else r where
-    -- if not found, it must be an isolated node
-    (ps, cs) = M.findWithDefault ([],[]) item adjs
-    -- put self as Nothing in disc to indicate we are computing it
-    r0 = M.insert item Nothing disc
-
-    -- recursively call on both parent and children
-    (r1, psts') = mapAccumR (evalTier forced adjs (Left tier)) r0 ps
-    (r2, csts') = mapAccumR (evalTier forced adjs (Right tier)) r1 cs
-
-    -- search children first
-      -- if child returns a Right process as normal
-    -- search parents
-      -- if parent returns a Right, just ignore (already processed this case, either we just came from this parent OR we looped to it from a child node)
-
-    -- if all ri
-
-    -- TODO also this needs to propogate the Right cases back to calling parents meaning this is totally broken :((
-    -- TODO must be assymmetry here
-    -- loop detection should only happen in one direction to both! I think at least
-    -- combine results for adjacent nodes that are eventual parents and children
-    combine :: [Either (Maybe Int) (Maybe Int)] -> [Either (Maybe Int) (Maybe Int)] -> [Maybe Int]
-    combine orig add = map (either id id) orig <> rights add
-    psts = combine psts' csts'
-    csts = combine csts' psts'
-
-    -- compute tier
-    tier' = evalTierFn (psts, csts)
-    -- and override with forced tier
-    tier = M.findWithDefault tier' item forced
-
-    -- left means we have a fixed point (probably)
-    r = (r2, Left (Just tier))
-
 clearInTuple ::
   Lens' ([Item],[Item]) [Item]
   -> Item -- ^ item to clear
+  -> Item -- ^ item we are clearing from
   -> M.Map Item Adjs -- ^ map of adjacencies
   -> M.Map Item Adjs -- ^ map with item removed from parents of all of item's children
-clearInTuple l item adjs = M.adjust (over l (delete item)) item adjs
+clearInTuple l toClear clearFrom adjs = M.adjust (over l (L.delete toClear)) clearFrom adjs
 
-clearInChildren :: Item -> M.Map Item Adjs -> M.Map Item Adjs
-clearInChildren = clearInTuple _2
+clearItemFromChildren :: Item -> M.Map Item Adjs -> M.Map Item Adjs
+clearItemFromChildren parent adjs = case M.lookup parent adjs of
+  Nothing -> adjs
+  -- go through children and remove parent
+  Just (_, cs) -> foldr (clearInTuple _1 parent) adjs cs
 
-clearInParents :: Item -> M.Map Item Adjs -> M.Map Item Adjs
-clearInParents = clearInTuple _1
-
+clearItemFromParents :: Item -> M.Map Item Adjs -> M.Map Item Adjs
+clearItemFromParents child adjs = case M.lookup child adjs of
+  Nothing -> adjs
+  -- go through parents and remove child
+  Just (ps, _) -> foldr (clearInTuple _2 child) adjs ps
 
 -- | evaluate the tier of an item
 -- returns (tier, new map with tier inserted)
 -- fixed version of above
-evalTier2 ::
+evalTier ::
   M.Map Item Int -- ^ forced tiers
   -> M.Map Item Adjs -- ^ map of adjancencies made in the previous step
   -> Maybe (Either Int Int) -- ^ left is parent of this item's tier, right is child of this item's tier
   -> M.Map Item (Maybe Int) -- ^ accumulating map of node tiers (or Nothing if still being computed)
   -> Item -- ^ current item we're processing
   -> (M.Map Item (Maybe Int), Either Int (Maybe Int)) -- ^ (new accumulating map, our own tier (left if just parent or child, right if eventual parent and child, Nothing if already visited and no forced value)
-evalTier2 forced adjs mct disc item = if item `M.member` disc
+evalTier forced adjs mct disc item = if item `M.member` disc
   -- we've been here before, `Right _` indicates no fixed pt and both parent and child
   then (disc, Right (M.lookup item forced))
   else r where
@@ -150,15 +110,15 @@ evalTier2 forced adjs mct disc item = if item `M.member` disc
     -- put self as Nothing in disc to indicate we are computing it
     r0 = M.insert item Nothing disc
     -- remove self from child's parents before recursing
-    adjs1 = clearInChildren item adjs
+    adjs1 = clearItemFromChildren item adjs
     -- recursively call in all children, pass in a our own tier as a thunk
     (r1, csts'') = mapAccumR (evalTier forced adjs (Just $ Left tier)) r0 cs
     -- remove self from parent's children (yes adjs, not adjs1, though both would work)
-    adjs2 = clearInParents item adjs
+    adjs2 = clearItemFromParents item adjs
     -- recursively call in all parents, pass in a our own tier as a thunk
     (r2, psts'') = mapAccumR (evalTier forced adjs (Just $ Right tier)) r1 ps
     -- add caller's tier to parent or children
-    (psts', csts') = case mct of
+    (psts', csts') = fromMaybe (psts'', csts'') $ flip fmap mct $ \case
       Left x -> (Left x:psts'',csts'')
       Right x -> (psts'', Left x:csts'')
     -- convert to tierfn
@@ -201,7 +161,7 @@ evalTierFn (ps, cs) = r where
   r = if null cs
     -- if there are NO child nodes, we have no dependencies so our tier is 0
     then 0
-    else combine_minps_maxcs (S.foldr minps Nothing ps) (S.foldr maxcs Nothing cs)
+    else combine_minps_maxcs (foldr minps Nothing ps) (foldr maxcs Nothing cs)
 
 -- TODO TEST
 -- | returns the tier of the item according to rules (see README.md)
@@ -214,7 +174,7 @@ findTiers allConns forced item = tiers where
   -- first build adjacency map
   adjs = buildAdjs allConns item M.empty
   -- next evaluate tiers
-  (mtiers, _) = evalTier forced adjs M.empty item
+  (mtiers, _) = evalTier forced adjs Nothing M.empty item
   -- all tiers should be Just otherwise it's a bug
   !tiers = fmap fromJust mtiers
 
