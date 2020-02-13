@@ -36,7 +36,7 @@ test_generateTieredItems = describe "generateTieredItems" $ do
         --generateTieredItems itemSet recipeSet `shouldSatisfy` (\x -> trace (LT.unpack (pShow x)) $ True)
   it ("handles circular case") $ do
     withFile "tier_circular.spec" $ \blocks ->
-      generateTieredItems (knownItems blocks) (knownRecipes blocks) `shouldSatisfy` flip deepseq True
+      newGenerateTieredItems (knownItems blocks) (knownRecipes blocks) `shouldSatisfy` flip deepseq True
 
 -- Method2 stuff
 test_clearInTuple :: Spec
@@ -88,4 +88,5 @@ spec = do
   describe "Methods" $ do
     test_generateTieredItems
   describe "Methods2" $ do
+    test_buildAdjs
     test_clearInTuple

@@ -107,10 +107,10 @@ evalTier ::
   -> Maybe (Either Int Int) -- ^ left is parent of this item's tier, right is child of this item's tier
   -> M.Map Item (Maybe Int) -- ^ accumulating map of node tiers (or Nothing if still being computed)
   -> Item -- ^ current item we're processing
-  -> (M.Map Item (Maybe Int), Either Int (Maybe Int)) -- ^ (new accumulating map, our own tier (left if just parent or child, right if eventual parent and child, Nothing if already visited and no forced value)
+  -> (M.Map Item (Maybe Int), Either (Maybe Int) (Maybe Int)) -- ^ (new accumulating map, our own tier (left if just parent or child, right if eventual parent and child, Nothing if tier is dependent on caller's tier)
 evalTier forced adjs mct disc item = if item `M.member` disc
   -- we've been here before, `Right _` indicates no fixed pt and both parent and child
-  then (disc, Right (M.lookup item forced))
+  then trace ("hit loop " <> show item) $ (disc, Right (M.lookup item forced))
   else r where
     -- (note, if not found, it must be an isolated node)
     (ps, cs) = M.findWithDefault ([],[]) item adjs
@@ -126,21 +126,27 @@ evalTier forced adjs mct disc item = if item `M.member` disc
     (r2, psts'') = mapAccumR (evalTier forced adjs2 (Just $ Right tier)) r1 ps
     -- add caller's tier to parent or children
     (psts', csts') = fromMaybe (psts'', csts'') $ flip fmap mct $ \case
-      Left x -> (Left x:psts'',csts'')
-      Right x -> (psts'', Left x:csts'')
+      Left x -> (Left (Just x):psts'',csts'')
+      Right x -> (psts'', Left (Just x):csts'')
     -- convert to tierfn
-    csts = map (either Just id) csts'
+    csts = map (either id id) csts'
     -- if parent returns Right, do nothing because we've included that data in other ways
     -- also add children that are also eventual parents of this item
     -- note that this is the same as parents that are eventual children of this item
     -- so we don't need to add parents that are eventual children of this item to children (nor do we even know if this is the case or not)
-    psts = rights csts' <> map Just (lefts psts')
+    psts = rights csts' <> lefts psts'
     -- create a thunk for our tier
-    tier = trace ("evalTierFn " <> show item <> " " <> show (length psts, length csts)<> " " <> show (length ps, length cs)) $ evalTierFn (psts, csts)
+    tier = trace ("evalTierFn " <> show item <> " " <> show (fmap isNothing psts, fmap isNothing csts) ) $ evalTierFn (psts, csts)
     -- and put it in our output results
     r3 = M.insert item (Just tier) r2
-    -- return our accumulated visited nodes and our tier
-    r = (r3, Left tier)
+    r = if all isNothing psts
+      -- if all parents are Nothing, return Nothing indicating our tier is dependent on other nodes
+      then (r3, Left Nothing)
+      else if not (null csts) && all isNothing csts
+        -- if there are children and they are all Nothing, return Nothing indicating we are in a loop
+        then (r3, Left Nothing)
+        else (r3, Left (Just tier))
+
 
 -- | data type containing information to compute a node's tier
 -- (parent tiers, child tiers)
