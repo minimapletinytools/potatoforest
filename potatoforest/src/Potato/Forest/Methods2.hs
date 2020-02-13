@@ -21,6 +21,12 @@ import qualified Data.Map                          as M
 import           Data.Maybe
 import qualified Data.Set                          as S
 
+-- for debugging, remove me
+import qualified Data.Text.Lazy                    as LT
+import           Text.Pretty.Simple
+trace_pShow :: (Show a) => a -> b -> b
+trace_pShow x = trace (LT.unpack (pShow x))
+
 -- Notation/Termionology:
 -- A -> B means "A depends on B"
 -- and "B is the child of A"
@@ -140,8 +146,8 @@ evalTier forced adjs mct disc item = if item `M.member` disc
     tier = trace ("evalTierFn " <> show item <> " " <> show (fmap isNothing psts, fmap isNothing csts) ) $ evalTierFn (psts, csts)
     -- and put it in our output results
     r3 = M.insert item (Just tier) r2
-    r = if all isNothing psts
-      -- if all parents are Nothing, return Nothing indicating our tier is dependent on other nodes
+    r = if null psts || any isNothing psts
+      -- if no parents or any parent is Nothing, return Nothing indicating our tier is dependent on other nodes
       then (r3, Left Nothing)
       else if not (null csts) && all isNothing csts
         -- if there are children and they are all Nothing, return Nothing indicating we are in a loop
@@ -158,8 +164,8 @@ evalTierFn :: TierFn -> Int
 evalTierFn (ps, cs) = r where
   -- compute the min of two parent tiers
   minps :: Maybe Int -> Maybe Int -> Maybe Int
-  minps Nothing p2 = p2
-  minps p1 Nothing = p1
+  --minps Nothing p2 = p2
+  --minps p1 Nothing = p1
   minps p1 p2      = minOrd1 p1 p2
   -- compute the max of two child tiers
   maxcs :: Maybe Int -> Maybe Int -> Maybe Int
@@ -178,7 +184,11 @@ evalTierFn (ps, cs) = r where
     -- if there are NO child nodes, we have no dependencies so our tier is 0
     -- N.B. this is not the same as "Nothing"
     then trace "got to the end" $ 0
-    else combine_minps_maxcs (foldr minps Nothing ps) (foldr maxcs Nothing cs)
+    -- relude has no foldl1 for some reason, need lazy variant so whatever we just use partial functions here it's fine go away
+    else if null ps
+      then combine_minps_maxcs Nothing (L.foldr1 maxcs cs)
+      else combine_minps_maxcs (L.foldr1 minps ps) (L.foldr1 maxcs cs)
+
 
 -- TODO TEST
 -- | returns the tier of the item according to rules (see README.md)
@@ -189,6 +199,7 @@ findTiers ::
   -> M.Map Item Int -- ^ all item tiers
 findTiers allConns forced item = tiers where
   -- first build adjacency map
+  --adjs = trace "HI:" $ trace_pShow allConns $ traceShowId $ buildAdjs allConns item M.empty
   adjs = buildAdjs allConns item M.empty
   -- next evaluate tiers
   (mtiers, _) = evalTier forced adjs Nothing M.empty item
