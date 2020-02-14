@@ -124,6 +124,7 @@ evalTier ::
   -- TODO switch this to something like Either Item Item since tier thunk is already stored in disc
   -> Maybe (Either (TierFn, Int) (TierFn, Int)) -- ^ left is parent of this item's tier, right is child of this item's tier
   -> S.Set Item -- ^ set of visited nodes that are still being processed
+  -- TODO do not need full TierFn, just list of parent tiers
   -> M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
   -> Item -- ^ current item we're processing
   -- TODO get rid of either
@@ -136,8 +137,8 @@ evalTier forced adjs mct process !disc item
     Just ct -> case ct of
       -- called from parent, add Nothing to TierFn indicating loop
       Left (_,pTier) -> r where
-        Just (tfn,_) = M.lookup item disc
-        r = trace ("loop case: " <> show item <> " " <> showDebugTierFn tfn) $ (M.adjust (over (_1 . _1) (Nothing:)) item disc, Right (M.lookup item forced))
+        Just (tfn, mTier) = M.lookup item disc
+        r = (M.adjust (over (_1 . _1) (Nothing:)) item disc, Right Nothing)
       -- called from child
       -- fixed point in looping cases are handled in children which we recurse over first
       -- so we can safely use tier thunk in the map which must exist
@@ -166,7 +167,7 @@ evalTier forced adjs mct process !disc item
     (d2, psts'') = mapAccumR (evalTier forced adjsP (Just $ Right (tierFn, tier)) process) d1 ps
     -- add caller's tier to parent or children
     -- TODO just pull from disc instead
-    (psts', csts') = trace ("parent children of: " <> show item <> " " <> show (isNothing <<$>> psts'', isNothing <<$>> csts'')) $ fromMaybe (psts'', csts'') $ flip fmap mct $ \case
+    (psts', csts') = fromMaybe (psts'', csts'') $ flip fmap mct $ \case
       Left (_,pTier) -> (Left (Just pTier):psts'',csts'')
       Right (_,cTier) -> (psts'', Left (Just cTier):csts'')
     -- keep both left and right for children
@@ -176,7 +177,7 @@ evalTier forced adjs mct process !disc item
     -- collect anything added to our TierFn while traversing children
     ((psts2, csts2), _) = M.findWithDefault (error "this should never happen") item d2
     tierFn@(rpsts,rcsts) = (psts2<>psts, csts2<>csts)
-    tier = trace ("THUNK evalTierFn: " <> show item <> " " <> show (fmap isNothing rpsts, fmap isNothing rcsts)) $ evalTierFn tierFn
+    tier = evalTierFn tierFn
     r = trace ("evalTier rslt: " <> show item <> " " <> show (fmap isNothing rpsts, fmap isNothing rcsts)) $ if null csts
       -- if no children, we can safely return our tier becaues it's Just 0
       then (d2, Left (Just tier))
@@ -187,6 +188,13 @@ evalTier forced adjs mct process !disc item
           -- if no parents or any parent is Nothing, return Nothing indicating our tier is dependent on other nodes
           then (d2, Left Nothing)
           else (d2, Left (Just tier))
+
+{- can't remember why I did this, you can delete it but here it is just in case
+else if all isRight csts'
+  -- if there are children and they are all Right, return Right indicating we are in a loop
+  -- our tier is the maximal of all children tiers (some may have been forced)
+  then (d2, Right (L.foldr1 maxOrd1 csts))
+-}
 
 
 -- | data type containing information to compute a node's tier
