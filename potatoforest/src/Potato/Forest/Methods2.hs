@@ -75,7 +75,7 @@ buildAdjs allConns item visited = if item `M.member` visited
     r1 = foldr foldFn1 r0 children
     -- finally add ourselves to each child as a parent
     foldFn2 :: Item -> Map Item Adjs -> Map Item Adjs
-    foldFn2 child acc = M.alter (Just . over _1 ([item]<>) . fromMaybe ([],[])) child acc
+    foldFn2 child acc = M.alter (Just . over _1 (item:) . fromMaybe ([],[])) child acc
     r2 = foldr foldFn2 r1 children
     -- clear items we've visited already
     -- (inefficient but whatever)
@@ -106,64 +106,78 @@ clearItemFromParents child adjs = case M.lookup child adjs of
   -- go through parents and remove child
   Just (ps, _) -> foldr (clearInTuple _2 child) adjs ps
 
+--thunkTierFn :: TierFn -> (TierFn, Int)
+--thunkTierFn tfn = (tfn, evalTierFn tfn)
+
+-- does not evaluate tier thunks within
+showDebugTierFn :: TierFn -> String
+showDebugTierFn (a,b) = show (fmap isNothing a, fmap isNothing b)
+
+
 -- | evaluate the tier of an item
 -- returns (tier, new map with tier inserted)
 -- fixed version of above
 evalTier ::
   M.Map Item Int -- ^ forced tiers
   -> M.Map Item Adjs -- ^ map of adjancencies made in the previous step
+  -- TODO you don't need TierFn here btw
   -- TODO switch this to something like Either Item Item since tier thunk is already stored in disc
-  -> Maybe (Either Int Int) -- ^ left is parent of this item's tier, right is child of this item's tier
+  -> Maybe (Either (TierFn, Int) (TierFn, Int)) -- ^ left is parent of this item's tier, right is child of this item's tier
   -> S.Set Item -- ^ set of visited nodes that are still being processed
-  -> M.Map Item Int -- ^ accumulating map of node tiers
+  -> M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
   -> Item -- ^ current item we're processing
-  -- TODO I think you can get rid of a maybe here
-  -- the second type in the tuple is hella confusing
-  -> (M.Map Item Int, Either (Maybe Int) (Maybe Int)) -- ^ (new accumulating map, our own tier (left if just parent or child, right if child and eventual parent, Nothing if tier is dependent on caller's tier)
-evalTier forced adjs mct !process !disc item
+  -- TODO get rid of either
+  -- TODO you can even get rid of maybe if you check if children is processing first before recursing in children
+  -> (M.Map Item (TierFn, Int), Either (Maybe Int) (Maybe Int)) -- ^ (new accumulating map, our own tier (left if just parent or child, right if child and eventual parent, Nothing if tier is dependent on caller's tier)
+evalTier forced adjs mct process !disc item
   -- we're still processing this node
   | item `S.member` process = trace ("hit processing: " <> show item) $ case mct of
-    Nothing -> error "this should never happen"
+    Nothing -> error "this should never happen, recursive calls always have caller"
     Just ct -> case ct of
-      -- called from parent
-      -- `Right _` indicates no fixed pt and eventual parent of caller
-      -- this is what allows the lazy evalTierFn to find a fixed point in the case of a circular dependency
-      Left t -> (disc, Right (M.lookup item forced))
+      -- called from parent, add Nothing to TierFn indicating loop
+      Left (_,pTier) -> r where
+        Just (tfn,_) = M.lookup item disc
+        r = trace ("loop case: " <> show item <> " " <> showDebugTierFn tfn) $ (M.adjust (over (_1 . _1) (Nothing:)) item disc, Right (M.lookup item forced))
       -- called from child
       -- fixed point in looping cases are handled in children which we recurse over first
       -- so we can safely use tier thunk in the map which must exist
-      Right t -> (disc, Left $ Just (M.findWithDefault (error "this should never happen") item disc))
-  -- we aren't processing this node and we know the answer already!
-  | Just x <- M.lookup item disc = trace ("hit disc: " <> show item) $ (disc, Left (Just x))
+      Right _ -> (disc, Left . Just . snd $ M.findWithDefault (error "this should never happen") item disc)
+  -- we're done processing children of this node so we aren't in a circular loop case
+  | Just (_,tier) <- M.lookup item disc = trace ("hit disc: " <> show item) $ case mct of
+      Nothing -> error "this should never happen, recursive calls always have caller"
+      Just ct -> case ct of
+        -- called from parent, add parents tier to TierFn
+        Left (_,pTier) -> (M.adjust (over (_1 . _1) (Just pTier:)) item disc, Left (Just tier))
+        -- called from child, just return the answer
+        -- note this closes loops that were found when we go down children
+        Right _    -> (disc, Right (Just tier))
   | otherwise = trace ("hit standard: " <> show item) $ r where
-
     -- remove self as parent from children first because this node may be its own parent (which causes an infinite loop)
     adjsC = clearItemFromChildren item adjs
-    -- (note, if not found, it must be an isolated node, sad)
+    -- (it should always exist in the map assuming buildAdjs works correctly)
     (ps, cs) = M.findWithDefault ([],[]) item adjsC
-
-    -- put thunk to our own tier in disc
-    d0 = trace ("eval tier " <> show item <> " " <> show (ps, cs)) $ M.insert item tier disc
+    -- put our to-be-constructed TierFn and a thunk to our own tier in disc
+    d0 = trace ("eval tier " <> show item <> " " <> show (ps, cs)) $ M.insert item (([],[]), tier) disc
     -- recursively call in all children, add self to processing nodes before calling
-    (d1, csts'') = mapAccumR (evalTier forced adjsC (Just $ Left tier) (S.insert item process)) d0 cs
+    (d1, csts'') = mapAccumR (evalTier forced adjsC (Just $ Left (tierFn, tier)) (S.insert item process)) d0 cs
     -- remove self from parents before recursing
     adjsP = (clearItemFromParents item adjsC)
     -- recursively call in all parents, pass in a our own tier as a thunk
-    (d2, psts'') = mapAccumR (evalTier forced adjsP (Just $ Right tier) process) d1 ps
+    (d2, psts'') = mapAccumR (evalTier forced adjsP (Just $ Right (tierFn, tier)) process) d1 ps
     -- add caller's tier to parent or children
     -- TODO just pull from disc instead
     (psts', csts') = trace ("parent children of: " <> show item <> " " <> show (isNothing <<$>> psts'', isNothing <<$>> csts'')) $ fromMaybe (psts'', csts'') $ flip fmap mct $ \case
-      Left x -> (Left (Just x):psts'',csts'')
-      Right x -> (psts'', Left (Just x):csts'')
+      Left (_,pTier) -> (Left (Just pTier):psts'',csts'')
+      Right (_,cTier) -> (psts'', Left (Just cTier):csts'')
     -- keep both left and right for children
     csts = map (either id id) csts'
-    -- if parent returns Right, do nothing because it should be captured in `rights csts'`
-    -- note that eventual parent map breaks topology and sometimes a parent can show up more than once in 1-2 node cases
-    -- TODO is this step even necessary? (maybe necessary for forced nodes?)
-    psts = rights csts' <> lefts psts'
-    -- create a thunk for our tier
-    tier = trace ("THUNK evalTierFn: " <> show item <> " " <> show (fmap isNothing psts, fmap isNothing csts)) $ evalTierFn (psts, csts)
-    r = trace ("evalTier rslt: " <> show item <> " " <> show (fmap isNothing psts, fmap isNothing csts)) $ if null csts
+    -- keeps only lefts, the rights are included in d2
+    psts = lefts psts'
+    -- collect anything added to our TierFn while traversing children
+    ((psts2, csts2), _) = M.findWithDefault (error "this should never happen") item d2
+    tierFn@(rpsts,rcsts) = (psts2<>psts, csts2<>csts)
+    tier = trace ("THUNK evalTierFn: " <> show item <> " " <> show (fmap isNothing rpsts, fmap isNothing rcsts)) $ evalTierFn tierFn
+    r = trace ("evalTier rslt: " <> show item <> " " <> show (fmap isNothing rpsts, fmap isNothing rcsts)) $ if null csts
       -- if no children, we can safely return our tier becaues it's Just 0
       then (d2, Left (Just tier))
       else if all isNothing csts
@@ -184,8 +198,6 @@ evalTierFn :: TierFn -> Int
 evalTierFn (ps, cs) = r where
   -- compute the min of two parent tiers
   minps :: Maybe Int -> Maybe Int -> Maybe Int
-  --minps Nothing p2 = p2
-  --minps p1 Nothing = p1
   minps p1 p2      = minOrd1 p1 p2
   -- compute the max of two child tiers
   maxcs :: Maybe Int -> Maybe Int -> Maybe Int
@@ -222,7 +234,8 @@ findTiers allConns forced item = traceShowId tiers where
   --adjs = trace "HI:" $ trace_pShow allConns $ traceShowId $ buildAdjs allConns item M.empty
   adjs = buildAdjs allConns item M.empty
   -- next evaluate tiers
-  (tiers, _) = evalTier forced adjs Nothing S.empty M.empty item
+  (tiers', _) = evalTier forced adjs Nothing S.empty M.empty item
+  tiers = M.map snd tiers'
 
 
 newGenerateTieredItems ::
