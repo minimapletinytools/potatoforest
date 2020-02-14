@@ -1,3 +1,6 @@
+# track 1
+# a <- b <- c1 <- c2 <- c3
+#           └-----------^
 ITEM t1_a
 STARTING 1
 
@@ -15,6 +18,11 @@ ITEM t1_c3
 INPUTS t1_c2
 
 # track 2
+# time <-----------┐
+# a <- b1 <- b2 <- d
+#      └-----^     |
+# c1 <- c2 <-------┘
+# └-----^
 ITEM t2_a
 
 # simple 2 item cycle, should be tier 2
@@ -36,5 +44,7 @@ INPUTS
 t2_b2 t2_c1 time
 
 # track 3, 1 item cycle, should be tier 1
+# a <┐
+# ^--┘
 ITEM t3_a
 INPUTS t3_a
