@@ -206,6 +206,8 @@ evalTierFn :: TierFn -> Int
 evalTierFn (ps, cs) = r where
   -- compute the min of two parent tiers
   minps :: Maybe Int -> Maybe Int -> Maybe Int
+  minps Nothing p2 = p2
+  minps p1 Nothing = p1
   minps p1 p2      = minOrd1 p1 p2
   -- compute the max of two child tiers
   maxcs :: Maybe Int -> Maybe Int -> Maybe Int
@@ -222,8 +224,7 @@ evalTierFn (ps, cs) = r where
   combine_minps_maxcs (Just mps) (Just mcs) = max mcs $ min (mps - 1) (mcs + 1)
   r = if null cs
     -- if there are NO child nodes, we have no dependencies so our tier is 0
-    -- N.B. this is not the same as "Nothing"
-    then trace "got to the end" $ 0
+    then 0
     -- relude has no foldl1 for some reason, need lazy variant so whatever we just use partial functions here it's fine go away
     else if null ps
       then combine_minps_maxcs Nothing (L.foldr1 maxcs cs)
