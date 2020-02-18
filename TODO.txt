@@ -6,6 +6,7 @@ squash Nothing (Just x) = Just x
 squash (Just x) Nothing = 0
 
 ::TODO::
+-phantom recipes (only for solver, does not show up in visualizer)
 -Parsing ItemExp should fail entire parser if it finds items that don't exist
 -fix tier generation to handle circular dependencies
 -do proper item positioning

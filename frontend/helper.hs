@@ -6,7 +6,8 @@ module Helper (
   , styleToAttr
   , makeLineStyle
   , mapWithIndexM
-  , mapKeysM
+  , mapWithKeyM
+  , mapWithKeyOnlyM
 ) where
 
 import qualified Data.Map  as M
@@ -85,5 +86,10 @@ makeLineStyle a b = M.fromList [
 mapWithIndexM :: (Traversable t, Monad m) => (Int -> a -> m b) -> t a -> m (t b)
 mapWithIndexM f ta = sequence $ snd (mapAccumL (\i a -> (i+1, f i a)) 0 ta)
 
-mapKeysM :: (Monad m) => M.Map k a -> (k -> m b) -> m [b]
-mapKeysM m f = M.foldrWithKey (\k _ acc -> (:) <$> f k <*> acc) (return []) m
+-- TODO move to Data.Map namespace
+mapWithKeyM :: (Monad m) => (k -> a -> m b) -> Map k a -> m [b]
+mapWithKeyM f m = M.foldrWithKey (\k v acc -> (:) <$> f k v <*> acc) (return []) m
+
+-- TODO move to Data.Map namespace
+mapWithKeyOnlyM :: (Monad m) => (k -> m b) -> M.Map k a -> m [b]
+mapWithKeyOnlyM f m = M.foldrWithKey (\k _ acc -> (:) <$> f k <*> acc) (return []) m

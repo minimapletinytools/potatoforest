@@ -6,15 +6,16 @@ module Potato (
   potatomain
 ) where
 
-import qualified Data.Map              as M
-import qualified Data.Set              as S
+import qualified Data.Map               as M
+import qualified Data.Set               as S
 import           Relude
-import           Relude.Extra.Map      (lookup)
+import           Relude.Extra.Map       (lookup)
 
 import           Helper
 import           Widgets
 
 import           Potato.Forest.Methods
+import           Potato.Forest.Methods2
 import           Potato.Forest.Parser
 import           Potato.Forest.Types
 import           Reflex.Dom
@@ -22,7 +23,7 @@ import           Reflex.Dom
 import           Data.FileEmbed
 
 
-import qualified Data.Text             as T
+import qualified Data.Text              as T
 
 
 -- | helper method
@@ -72,23 +73,23 @@ potatomain = do
     -- parse potato
     Right fb = runForestBlocksParser (T.pack spec)
 
-    tiered' = generateTieredItems (knownItems fb) (knownRecipes fb)
+    tiered = newGenerateTieredItems (knownItems fb) (knownRecipes fb)
+    --tiered :: [ItemConnectionsList]
+    --tiered = sortTieredItems $ tiered'
 
     allConnections :: ItemConnectionsMap
-    allConnections = foldr M.union M.empty tiered'
+    allConnections = makeItemConnectionsMap (knownItems fb) (knownRecipes fb)
 
-    tiered :: [ItemConnectionsList]
-    tiered = sortTieredItems $ tiered'
 
     -- | helper method for rendering items
-    innerMap :: (MonadWidget t m) => Int -> Int -> (Item, ItemConnections) -> m (ItemMeta t)
-    innerMap tier x (item, _) = itemBox item attrs where
+    innerMap :: (MonadWidget t m) => Int -> Int -> Item -> m (ItemMeta t)
+    innerMap tier x item = itemBox item attrs where
       pos = (x * 150 + 100, tier * 200 + 100)
       attrs = ItemAttr { ia_pos = pos }
 
     -- | helper method for rendering items
-    outerMap :: (MonadWidget t m) => Int -> ItemConnectionsList -> m [ItemMeta t]
-    outerMap tier items = mapWithIndexM (innerMap tier) items
+    outerMap :: (MonadWidget t m) => Int -> ItemSet -> m [ItemMeta t]
+    outerMap tier items = mapWithIndexM (innerMap tier) (S.toList items)
 
     -- TODO add actions for highlighting
     -- | helper method for rendering lines
@@ -102,7 +103,7 @@ potatomain = do
         pos' = ia_pos . im_attr $ im
         connections = M.findWithDefault M.empty (im_item im) icm
       -- for now, join all connections together, (rather than discern by recipe)
-      fmap join $ mapKeysM connections $ \item -> withItemMeta imm (itemId item) (return []) $ \eim -> do
+      fmap join $ flip mapWithKeyOnlyM connections $ \item -> withItemMeta imm (itemId item) (return []) $ \eim -> do
         il <- line (offsetPosToItemBoxCenter pos') (offsetPosToItemBoxCenter . ia_pos . im_attr $ eim)
         return [il]
 
@@ -111,7 +112,7 @@ potatomain = do
     potatoWidget = mdo
 
       -- generate item boxes
-      itemMetas' <- mapWithIndexM outerMap tiered
+      itemMetas' <- mapWithKeyM outerMap tiered
 
       let
         -- list of all ItemMeta returned by our itemBox widget

@@ -1,35 +1,50 @@
-ITEM teddy_bear
+# track 1
+# a <- b <- c1 <- c2 <- c3
+#           └-----------^
+ITEM t1_a
 STARTING 1
 
-ITEM giraffe
-STARTING 2
+ITEM t1_b
+INPUTS t1_a
 
-ITEM apple
-INPUTS teddy_bear
+# simple 3 item loop, should be tier 2
+ITEM t1_c1
+INPUTS t1_b t1_c3
 
-ITEM milk
-INPUTS apple
+ITEM t1_c2
+INPUTS t1_c1
 
-ITEM shake
-INPUTS apple
+ITEM t1_c3
+INPUTS t1_c2
 
-ITEM blender
-INPUTS shake
+# track 2
+# time <-----------┐
+# a <- b1 <- b2 <- d
+#      └-----^     |
+# c1 <- c2 <-------┘
+# └-----^
+ITEM t2_a
 
-ITEM wheel
+# simple 2 item cycle, should be tier 2
+ITEM t2_b1
+INPUTS t2_a t2_b2
+
+ITEM t2_b2
+INPUTS t2_b1
+
+# 2 item cycle, should be tier 0
+ITEM t2_c1
+INPUTS t2_c2
+
+ITEM t2_c2
+INPUTS t2_c1
+
+ITEM t2_d
 INPUTS
-time
-shake
-leehw
+t2_b2 t2_c1 time
 
-ITEM leehw
-REQUIRES
-wheel
-2 milk
-
-ITEM poop
-INPUTS
-blender
-wheel
-REQUIRES
-2 giraffe
+# track 3, 1 item cycle, should be tier 1
+# a <┐
+# ^--┘
+ITEM t3_a
+INPUTS t3_a
