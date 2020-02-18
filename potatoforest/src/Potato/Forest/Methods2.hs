@@ -136,7 +136,6 @@ evalTier forced adjs mct process !disc item
     Just ct -> case ct of
       -- called from parent, add Nothing to TierFn indicating loop
       Left pTier -> r where
-        Just (tfn, mTier) = M.lookup item disc
         r = (M.adjust (over (_1 . _1) (Nothing:)) item disc, Right Nothing)
       -- called from child
       -- fixed point in looping cases are handled in children which we recurse over first
