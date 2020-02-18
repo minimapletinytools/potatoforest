@@ -120,9 +120,8 @@ showDebugTierFn (a,b) = show (fmap isNothing a, fmap isNothing b)
 evalTier ::
   M.Map Item Int -- ^ forced tiers
   -> M.Map Item Adjs -- ^ map of adjancencies made in the previous step
-  -- TODO you don't need TierFn here btw
   -- TODO switch this to something like Either Item Item since tier thunk is already stored in disc
-  -> Maybe (Either (TierFn, Int) (TierFn, Int)) -- ^ left is parent of this item's tier, right is child of this item's tier
+  -> Maybe (Either Int Int) -- ^ left is parent of this item's tier, right is child of this item's tier
   -> S.Set Item -- ^ set of visited nodes that are still being processed
   -- TODO do not need full TierFn, just list of parent tiers
   -> M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
@@ -136,7 +135,7 @@ evalTier forced adjs mct process !disc item
     Nothing -> error "this should never happen, recursive calls always have caller"
     Just ct -> case ct of
       -- called from parent, add Nothing to TierFn indicating loop
-      Left (_,pTier) -> r where
+      Left pTier -> r where
         Just (tfn, mTier) = M.lookup item disc
         r = (M.adjust (over (_1 . _1) (Nothing:)) item disc, Right Nothing)
       -- called from child
@@ -148,7 +147,7 @@ evalTier forced adjs mct process !disc item
       Nothing -> error "this should never happen, recursive calls always have caller"
       Just ct -> case ct of
         -- called from parent, add parents tier to TierFn
-        Left (_,pTier) -> (M.adjust (over (_1 . _1) (Just pTier:)) item disc, Left (Just tier))
+        Left pTier -> (M.adjust (over (_1 . _1) (Just pTier:)) item disc, Left (Just tier))
         -- called from child, just return the answer
         -- note this closes loops that were found when we go down children
         Right _    -> (disc, Right (Just tier))
@@ -160,16 +159,16 @@ evalTier forced adjs mct process !disc item
     -- put our to-be-constructed TierFn and a thunk to our own tier in disc
     d0 = trace ("eval tier " <> show item <> " " <> show (ps, cs)) $ M.insert item (([],[]), tier) disc
     -- recursively call in all children, add self to processing nodes before calling
-    (d1, csts'') = mapAccumR (evalTier forced adjsC (Just $ Left (tierFn, tier)) (S.insert item process)) d0 cs
+    (d1, csts'') = mapAccumR (evalTier forced adjsC (Just $ Left tier) (S.insert item process)) d0 cs
     -- remove self from parents before recursing
     adjsP = (clearItemFromParents item adjsC)
     -- recursively call in all parents, pass in a our own tier as a thunk
-    (d2, psts'') = mapAccumR (evalTier forced adjsP (Just $ Right (tierFn, tier)) process) d1 ps
+    (d2, psts'') = mapAccumR (evalTier forced adjsP (Just $ Right tier) process) d1 ps
     -- add caller's tier to parent or children
     -- TODO just pull from disc instead
     (psts', csts') = fromMaybe (psts'', csts'') $ flip fmap mct $ \case
-      Left (_,pTier) -> (Left (Just pTier):psts'',csts'')
-      Right (_,cTier) -> (psts'', Left (Just cTier):csts'')
+      Left pTier -> (Left (Just pTier):psts'',csts'')
+      Right cTier -> (psts'', Left (Just cTier):csts'')
     -- keep both left and right for children
     csts = map (either id id) csts'
     -- keeps only lefts, the rights are included in d2
@@ -206,8 +205,8 @@ evalTierFn :: TierFn -> Int
 evalTierFn (ps, cs) = r where
   -- compute the min of two parent tiers
   minps :: Maybe Int -> Maybe Int -> Maybe Int
-  minps Nothing p2 = p2
-  minps p1 Nothing = p1
+  --minps Nothing p2 = p2
+  --minps p1 Nothing = p1
   minps p1 p2      = minOrd1 p1 p2
   -- compute the max of two child tiers
   maxcs :: Maybe Int -> Maybe Int -> Maybe Int
