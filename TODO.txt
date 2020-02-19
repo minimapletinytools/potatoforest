@@ -1,9 +1,15 @@
-my tier = squash (min (parent tier), max (child tier + 1))
-acc :: M.Map Item (S.Set (Maybe Int), S.Set (Maybe Int))
+a -┐
+↓  |
+b  |
+↓  |
+c  |
+↓  ↓
+d1 d2
+↓  |
+e ←┘
 
-squash Nothing Nothing = 0
-squash Nothing (Just x) = Just x
-squash (Just x) Nothing = 0
+start from a
+start from e
 
 ::TODO::
 -phantom recipes (only for solver, does not show up in visualizer)

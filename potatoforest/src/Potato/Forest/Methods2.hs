@@ -163,7 +163,20 @@ evalTier forced adjs mct process disc item
       M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
       -> Item -- ^ current item we're processing
       -> (M.Map Item (TierFn, Int), Either (Maybe Int) (Maybe Int))
-    crfn = evalTier forced adjsC (Just $ Left forChildrenTier) (S.insert item process)
+    crfn acc cItem = crfnr where
+      (newAcc, ct) = if cItem `S.member` process
+        -- if child is processing
+        -- add Nothing to the parent of cItem indicating we are in a loop
+        then trace ("hit processing: " <> show cItem) $
+          (M.adjust (over (_1 . _1) (Nothing:)) cItem acc, Right Nothing)
+        else if cItem `M.member` disc
+          -- if child is discovered, (this means we're done processing children of this node so we aren't in a circular loop case)
+          -- add our tier thunk into the parent of cItem
+          then trace ("hit disc: " <> show item) $
+            (M.adjust (over (_1 . _1) (forChildrenTier:)) cItem disc, Left (Just tier))
+          else evalTier forced adjsC (Just $ Left forChildrenTier) (S.insert item process) acc cItem
+      -- TODO check if M.lookup item newAcc is different from
+      crfnr = (newAcc, ct)
 
     -- recursively call in all children, add self to processing nodes before calling
     (d1, csts'') = mapAccumR crfn d0 cs
