@@ -113,21 +113,26 @@ clearItemFromParents child adjs = case M.lookup child adjs of
 showDebugTierFn :: TierFn -> String
 showDebugTierFn (a,b) = show (fmap isNothing a, fmap isNothing b)
 
--- compute tier in a way to avoid fixed points
--- TODO item param is just for debugging, you can delete it
-noFixedTier :: Item -> TierFn -> Int -> Maybe Int
-noFixedTier item (psts, csts) tier = if null csts
+-- compute tiers for base cases in our induction
+baseCaseTier :: TierFn -> Maybe Int -> Maybe Int
+baseCaseTier (psts, csts) mTier = if null csts
   then Just 0 -- needed to break loops, even though it's the same as `Left (Just tier)`
   else if null psts
     -- if no parents, return  Nothing indicating our tier is dependent on children
     then Nothing
-    else if trace ("eval csts: " <> show item <> " " <> show (all isNothing csts)) $ all isNothing csts
-      -- if there are children and they are all Nothing, return Nothing indicating we are in a loop
+    else mTier
+
+-- compute tier in a way to avoid fixed points
+-- TODO item param is just for debugging, you can delete it
+noFixedTier :: Item -> TierFn -> Int -> Maybe Int
+noFixedTier item (psts, csts) tier =
+  if trace ("eval csts: " <> show item <> " " <> show (all isNothing csts)) $ all isNothing csts
+    -- if there are children and they are all Nothing, return Nothing indicating we are in a loop
+    then Nothing
+    else if trace ("eval psts: " <> show item <> " " <> show (any isNothing psts)) $ any isNothing psts
+      -- if any parent (excluding looped parents) is Nothing, return Nothing indicating our tier is dependent on child
       then Nothing
-      else if trace ("eval psts: " <> show item <> " " <> show (any isNothing psts)) $ any isNothing psts -- N.B. `psts` is not a bug!
-        -- if any parent (excluding looped parents) is Nothing, return Nothing indicating our tier is dependent on child
-        then Nothing
-        else trace ("eval tier: " <> show item) $ Just tier
+      else trace ("eval tier: " <> show item) $ Just tier
 
 -- | evaluate the tier of an item
 -- returns (tier, new map with tier inserted)
@@ -165,8 +170,8 @@ evalTier forced adjs mct process disc item = trace ("hit standard: " <> show ite
           -- if child is discovered, (this means we're done processing children of this node so we aren't in a circular loop case)
           -- add our tier thunk into the parent of cItem
           then trace ("hit disc: " <> show cItem) $
-            (M.adjust (over (_1 . _1) (rTier:)) cItem acc, Just (Just tier))
-          else evalTier forced adjsC (Just $ Left rTier) cProcess acc cItem
+            (M.adjust (over (_1 . _1) (passToChildren:)) cItem acc, Just (Just tier))
+          else evalTier forced adjsC (Just $ Left passToChildren) cProcess acc cItem
       -- TODO check if M.lookup item newAcc is different from
       crfnr = (newAcc, ct)
 
@@ -220,21 +225,15 @@ evalTier forced adjs mct process disc item = trace ("hit standard: " <> show ite
     -- this causes freeze if done too soon because whnf of rpsts and rcsts depend on parent tier or something like that
     --trace ("evalTier rslt: " <> show item <> " " <> show (fmap isNothing rpsts, fmap isNothing rcsts))
 
-    -- the tier we pass to the children should calculated WITHOUT loops
-    -- the tier we return should be calculate WITH loops
 
-    rTier = if null csts
-      then Just 0 -- needed to break loops, even though it's the same as `Left (Just tier)`
-      else if null rpsts
-        -- if no parents, return  Nothing indicating our tier is dependent on children
-        then Nothing
-        else if trace ("eval csts: " <> show item <> " " <> show (all isNothing csts)) $ all isNothing csts
-          -- if there are children and they are all Nothing, return Nothing indicating we are in a loop
-          then Nothing
-          else if trace ("eval psts: " <> show item <> " " <> show (any isNothing psts)) $ any isNothing psts -- N.B. `psts` is not a bug!
-            -- if any parent (excluding looped parents) is Nothing, return Nothing indicating our tier is dependent on child
-            then Nothing
-            else trace ("eval tier: " <> show item) $ Just tier
+
+
+
+    -- the tier we pass to the children should calculated WITHOUT loops
+    passToChildren = baseCaseTier (rpsts, csts) $ noFixedTier item (psts, csts) tier
+
+    -- the tier we return should be calculate WITH loops
+    rTier = baseCaseTier (rpsts, csts) $ noFixedTier item (rpsts, csts) tier
 
     -- update map to have our now fully constructed tierFn (this is for debug purposes only)
     d3 = M.adjust (set _1 tierFn) item d2
