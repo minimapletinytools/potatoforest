@@ -164,17 +164,18 @@ evalTier forced adjs mct process disc item
       -> Item -- ^ current item we're processing
       -> (M.Map Item (TierFn, Int), Either (Maybe Int) (Maybe Int))
     crfn acc cItem = crfnr where
-      (newAcc, ct) = if cItem `S.member` process
+      cProcess = (S.insert item process)
+      (newAcc, ct) = if cItem `S.member` cProcess
         -- if child is processing
         -- add Nothing to the parent of cItem indicating we are in a loop
         then trace ("hit processing: " <> show cItem) $
           (M.adjust (over (_1 . _1) (Nothing:)) cItem acc, Right Nothing)
-        else if cItem `M.member` disc
+        else if cItem `M.member` acc
           -- if child is discovered, (this means we're done processing children of this node so we aren't in a circular loop case)
           -- add our tier thunk into the parent of cItem
-          then trace ("hit disc: " <> show item) $
-            (M.adjust (over (_1 . _1) (forChildrenTier:)) cItem disc, Left (Just tier))
-          else evalTier forced adjsC (Just $ Left forChildrenTier) (S.insert item process) acc cItem
+          then trace ("hit disc: " <> show cItem) $
+            (M.adjust (over (_1 . _1) (forChildrenTier:)) cItem acc, Left (Just tier))
+          else evalTier forced adjsC (Just $ Left forChildrenTier) cProcess acc cItem
       -- TODO check if M.lookup item newAcc is different from
       crfnr = (newAcc, ct)
 
@@ -188,7 +189,22 @@ evalTier forced adjs mct process disc item
       M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
       -> Item -- ^ current item we're processing
       -> (M.Map Item (TierFn, Int), Either (Maybe Int) (Maybe Int))
-    prfn = evalTier forced adjsP (Just $ Right tier) process
+    prfn acc pItem = prfnr where
+      (newAcc, pt) = if pItem `S.member` process
+        -- if parent is processing
+        -- fixed point in looping cases are handled in children which we recurse over first
+        -- so we can safely use tier thunk in the discovered map which must exist
+        then trace ("hit processing: " <> show pItem) $
+          (acc, Left . Just . snd $ M.findWithDefault (error "this should never happen") pItem acc)
+        else if pItem `M.member` acc
+          -- if parent is discovered, (this means we're done processing children of this node so we aren't in a circular loop case)
+          -- just return the tier
+          -- note this closes loops that were found when we go down children
+          then trace ("hit disc: " <> show pItem) $
+            (acc, Right (Just tier))
+          else evalTier forced adjsP (Just $ Right tier) process acc pItem
+      -- TODO check if M.lookup item newAcc is different from
+      prfnr = (newAcc, pt)
 
     -- recursively call in all parents, pass in a our own tier as a thunk
     (d2, psts'') = mapAccumR prfn d1 ps
