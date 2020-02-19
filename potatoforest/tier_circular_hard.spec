@@ -48,3 +48,46 @@ t2_b2 t2_c1 time
 # ^--┘
 ITEM t3_a
 INPUTS t3_a
+
+# track 4 backtrack
+# a -┐
+# ↓  |
+# b  |
+# ↓  |
+# c  |
+# ↓  ↓
+# d1 d2
+# ↓  |
+# e ←┘
+
+ITEM t4_a
+INPUTS t4_b t4_d2
+ITEM t4_b
+INPUTS t4_c
+ITEM t4_c
+INPUTS t4_d1
+ITEM t4_d1
+INPUTS t4_e
+ITEM t4_d2
+INPUTS t4_e
+
+# track 5 double loop
+#         ┌---------v
+#         |  ┌ d3 ← d2
+# a ← b ← c ←┤
+#         |  └ e3 ← e2
+#         └---------^
+
+ITEM t5_a
+ITEM t5_b
+INPUTS t5_a
+ITEM t5_c1
+INPUTS t5_d2 t5_e2
+ITEM t5_d2
+INPUTS t5_d3
+ITEM t5_d3
+INPUTS t5_c
+ITEM t5_e2
+INPUTS t5_e3
+ITEM t5_e3
+INPUTS t5_c

@@ -229,10 +229,19 @@ evalTier forced adjs mct process disc item = trace ("hit standard: " <> show ite
 
 
 
-    -- the tier we pass to the children should calculated WITHOUT loops
+    -- TODO
+    -- the tier we pass to the children should calculated WITHOUT parents that are loops coming from THAT child
+      -- unless it has a value, in which case do pass it?
+        -- maybe not actually
+    -- it should also be calculated without the child that we are passing it too
+
     passToChildren = baseCaseTier (rpsts, csts) $ noFixedTier item (psts, csts) tier
 
-    -- the tier we return should be calculate WITH loops
+
+
+    -- the tier we pass to our children should not include the child itself
+
+    -- the tier we return should be calculated with everything
     rTier = baseCaseTier (rpsts, csts) $ noFixedTier item (rpsts, csts) tier
 
     -- update map to have our now fully constructed tierFn (this is for debug purposes only)
