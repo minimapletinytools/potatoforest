@@ -215,7 +215,10 @@ evalTier forced adjs mct process disc item = trace ("hit standard: " <> show ite
           then Nothing
           else Just tier
 
-    r = (d2, Just rTier)
+    -- update map to have our now fully constructed tierFn (this is for debug purposes only)
+    d3 = M.adjust (set _1 tierFn) item d2
+
+    r = (d3, Just rTier)
 
 
 {- can't remember why I did this, you can delete it but here it is just in case
@@ -273,7 +276,8 @@ findTiers allConns forced item = traceShowId tiers where
   adjs = buildAdjs allConns item M.empty
   -- next evaluate tiers
   (tiers', _) = evalTier forced adjs Nothing S.empty M.empty item
-  tiers = M.map snd tiers'
+
+  tiers = trace ("FOUND TIERS STARTING WITH: " <> show item <> " TIERS:" <> (show $ M.map fst tiers')) $ M.map snd tiers'
 
 
 newGenerateTieredItems ::
