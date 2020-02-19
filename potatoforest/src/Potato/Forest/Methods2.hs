@@ -203,16 +203,20 @@ evalTier forced adjs mct process disc item = trace ("hit standard: " <> show ite
 
     -- compute our actual tier, and then the tier we will pass to our parents/children
     tier = evalTierFn tierFn
+
+    -- this causes freeze if done too soon because whnf of rpsts and rcsts depend on parent tier or something like that
     --trace ("evalTier rslt: " <> show item <> " " <> show (fmap isNothing rpsts, fmap isNothing rcsts))
+
     rTier = if null rcsts
       then Left (Just 0) -- needed to break loops, even though it's the same as `Left (Just tier)`
       else if null rpsts || any isNothing rpsts
         -- if no parents or any parent is Nothing, return Left Nothing indicating our tier is dependent on children
-        then trace ("left nothing: " <> show item) $ Left Nothing
+        then Left Nothing
         else if all isNothing rcsts
           -- if there are children and they are all Nothing, return Right Nothing indicating we are in a loop
           then Right Nothing
           else Left (Just tier)
+
     -- the tier we report when recursively calling on our children
     forChildrenTier = either id id rTier
     r = (d2, rTier)
