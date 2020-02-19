@@ -120,8 +120,7 @@ showDebugTierFn (a,b) = show (fmap isNothing a, fmap isNothing b)
 evalTier ::
   M.Map Item Int -- ^ forced tiers
   -> M.Map Item Adjs -- ^ map of adjancencies made in the previous step
-  -- TODO switch this to something like Either Item Item since tier thunk is already stored in disc
-  -> Maybe (Either Int Int) -- ^ left is parent of this item's tier, right is child of this item's tier
+  -> Maybe (Either (Maybe Int) Int) -- ^ left is parent of this item's tier, right is child of this item's tier
   -> S.Set Item -- ^ set of visited nodes that are still being processed
   -- TODO do not need full TierFn, just list of parent tiers
   -> M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
@@ -129,12 +128,13 @@ evalTier ::
   -- TODO get rid of either
   -- TODO you can even get rid of maybe if you check if children is processing first before recursing in children
   -> (M.Map Item (TierFn, Int), Either (Maybe Int) (Maybe Int)) -- ^ (new accumulating map, our own tier (left if just parent or child, right if child and eventual parent, Nothing if tier is dependent on caller's tier)
-evalTier forced adjs mct process !disc item
+evalTier forced adjs mct process disc item
   -- we're still processing this node
   | item `S.member` process = trace ("hit processing: " <> show item) $ case mct of
     Nothing -> error "this should never happen, recursive calls always have caller"
     Just ct -> case ct of
       -- called from parent, add Nothing to TierFn indicating loop
+      -- give back Nothing,
       Left pTier -> r where
         r = (M.adjust (over (_1 . _1) (Nothing:)) item disc, Right Nothing)
       -- called from child
@@ -146,7 +146,7 @@ evalTier forced adjs mct process !disc item
       Nothing -> error "this should never happen, recursive calls always have caller"
       Just ct -> case ct of
         -- called from parent, add parents tier to TierFn
-        Left pTier -> (M.adjust (over (_1 . _1) (Just pTier:)) item disc, Left (Just tier))
+        Left pTier -> (M.adjust (over (_1 . _1) (pTier:)) item disc, Left (Just tier))
         -- called from child, just return the answer
         -- note this closes loops that were found when we go down children
         Right _    -> (disc, Right (Just tier))
@@ -157,35 +157,59 @@ evalTier forced adjs mct process !disc item
     (ps, cs) = M.findWithDefault ([],[]) item adjsC
     -- put our to-be-constructed TierFn and a thunk to our own tier in disc
     d0 = trace ("eval tier " <> show item <> " " <> show (ps, cs)) $ M.insert item (([],[]), tier) disc
+    --d0 = trace ("eval tier " <> show item <> " " <> show (ps, cs)) $ M.insert item (([],[]), tier) disc
+
+    crfn ::
+      M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
+      -> Item -- ^ current item we're processing
+      -> (M.Map Item (TierFn, Int), Either (Maybe Int) (Maybe Int))
+    crfn = evalTier forced adjsC (Just $ Left forChildrenTier) (S.insert item process)
+
     -- recursively call in all children, add self to processing nodes before calling
-    (d1, csts'') = mapAccumR (evalTier forced adjsC (Just $ Left tier) (S.insert item process)) d0 cs
+    (d1, csts'') = mapAccumR crfn d0 cs
+
     -- remove self from parents before recursing
     adjsP = (clearItemFromParents item adjsC)
+
+    prfn ::
+      M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
+      -> Item -- ^ current item we're processing
+      -> (M.Map Item (TierFn, Int), Either (Maybe Int) (Maybe Int))
+    prfn = evalTier forced adjsP (Just $ Right tier) process
+
     -- recursively call in all parents, pass in a our own tier as a thunk
-    (d2, psts'') = mapAccumR (evalTier forced adjsP (Just $ Right tier) process) d1 ps
+    (d2, psts'') = mapAccumR prfn d1 ps
+
     -- add caller's tier to parent or children
-    -- TODO just pull from disc instead
     (psts', csts') = fromMaybe (psts'', csts'') $ flip fmap mct $ \case
-      Left pTier -> (Left (Just pTier):psts'',csts'')
+      Left pTier -> (Left pTier:psts'',csts'')
       Right cTier -> (psts'', Left (Just cTier):csts'')
+
     -- keep both left and right for children
     csts = map (either id id) csts'
     -- keeps only lefts, the rights are included in d2
     psts = lefts psts'
+
     -- collect anything added to our TierFn while traversing children
     ((psts2, csts2), _) = M.findWithDefault (error "this should never happen") item d2
     tierFn@(rpsts,rcsts) = (psts2<>psts, csts2<>csts)
+
+    -- compute our actual tier, and then the tier we will pass to our parents/children
     tier = evalTierFn tierFn
-    r = trace ("evalTier rslt: " <> show item <> " " <> show (fmap isNothing rpsts, fmap isNothing rcsts)) $ if null csts
-      -- if no children, we can safely return our tier becaues it's Just 0
-      then (d2, Left (Just tier))
-      else if all isNothing csts
-        -- if there are children and they are all Nothing, return Right Nothing indicating we are in a loop
-        then (d2, Right Nothing)
-        else if null psts || any isNothing psts
-          -- if no parents or any parent is Nothing, return Nothing indicating our tier is dependent on other nodes
-          then (d2, Left Nothing)
-          else (d2, Left (Just tier))
+    --trace ("evalTier rslt: " <> show item <> " " <> show (fmap isNothing rpsts, fmap isNothing rcsts))
+    rTier = if null rcsts
+      then Left (Just 0) -- needed to break loops, even though it's the same as `Left (Just tier)`
+      else if null psts || any isNothing psts
+        -- if no parents or any parent is Nothing, return Left Nothing indicating our tier is dependent on children
+        then trace ("left nothing: " <> show item) $ Left Nothing
+        else if all isNothing csts
+          -- if there are children and they are all Nothing, return Right Nothing indicating we are in a loop
+          then Right Nothing
+          else Left (Just tier)
+    -- the tier we report when recursively calling on our children
+    forChildrenTier = either id id rTier
+    r = (d2, rTier)
+
 
 {- can't remember why I did this, you can delete it but here it is just in case
 else if all isRight csts'
