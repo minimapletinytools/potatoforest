@@ -125,9 +125,7 @@ evalTier ::
   -- TODO do not need full TierFn, just list of parent tiers
   -> M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
   -> Item -- ^ current item we're processing
-  -- TODO get rid of either
-  -- TODO you can even get rid of maybe if you check if children is processing first before recursing in children
-  -> (M.Map Item (TierFn, Int), Either (Maybe Int) (Maybe Int)) -- ^ (new accumulating map, our own tier (left if just parent or child, right if child and eventual parent, Nothing if tier is dependent on caller's tier)
+  -> (M.Map Item (TierFn, Int), Maybe (Maybe Int)) -- ^ (new accumulating map, our own tier, Just Nothing means depends on child or loop, Nothing means already visited in parent set)
 evalTier forced adjs mct process disc item = trace ("hit standard: " <> show item) $ r where
     -- remove self as parent from children first because this node may be its own parent (which causes an infinite loop)
     adjsC = clearItemFromChildren item adjs
@@ -140,20 +138,20 @@ evalTier forced adjs mct process disc item = trace ("hit standard: " <> show ite
     crfn ::
       M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
       -> Item -- ^ current item we're processing
-      -> (M.Map Item (TierFn, Int), Either (Maybe Int) (Maybe Int))
+      -> (M.Map Item (TierFn, Int), Maybe (Maybe Int))
     crfn acc cItem = crfnr where
       cProcess = (S.insert item process)
       (newAcc, ct) = if cItem `S.member` cProcess
         -- if child is processing
         -- add Nothing to the parent of cItem indicating we are in a loop
         then trace ("hit processing: " <> show cItem) $
-          (M.adjust (over (_1 . _1) (Nothing:)) cItem acc, Right Nothing)
+          (M.adjust (over (_1 . _1) (Nothing:)) cItem acc, Just Nothing)
         else if cItem `M.member` acc
           -- if child is discovered, (this means we're done processing children of this node so we aren't in a circular loop case)
           -- add our tier thunk into the parent of cItem
           then trace ("hit disc: " <> show cItem) $
-            (M.adjust (over (_1 . _1) (forChildrenTier:)) cItem acc, Left (Just tier))
-          else evalTier forced adjsC (Just $ Left forChildrenTier) cProcess acc cItem
+            (M.adjust (over (_1 . _1) (rTier:)) cItem acc, Just (Just tier))
+          else evalTier forced adjsC (Just $ Left rTier) cProcess acc cItem
       -- TODO check if M.lookup item newAcc is different from
       crfnr = (newAcc, ct)
 
@@ -166,20 +164,20 @@ evalTier forced adjs mct process disc item = trace ("hit standard: " <> show ite
     prfn ::
       M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
       -> Item -- ^ current item we're processing
-      -> (M.Map Item (TierFn, Int), Either (Maybe Int) (Maybe Int))
+      -> (M.Map Item (TierFn, Int), Maybe (Maybe Int))
     prfn acc pItem = prfnr where
       (newAcc, pt) = if pItem `S.member` process
         -- if parent is processing
         -- fixed point in looping cases are handled in children which we recurse over first
         -- so we can safely use tier thunk in the discovered map which must exist
         then trace ("hit processing: " <> show pItem) $
-          (acc, Left . Just . snd $ M.findWithDefault (error "this should never happen") pItem acc)
+          (acc, Just . Just . snd $ M.findWithDefault (error "this should never happen") pItem acc)
         else if pItem `M.member` acc
           -- if parent is discovered, (this means we're done processing children of this node so we aren't in a circular loop case)
           -- just return the tier
           -- note this closes loops that were found when we go down children
           then trace ("hit disc: " <> show pItem) $
-            (acc, Right (Just tier))
+            (acc, Nothing)
           else evalTier forced adjsP (Just $ Right tier) process acc pItem
       -- TODO check if M.lookup item newAcc is different from
       prfnr = (newAcc, pt)
@@ -187,15 +185,15 @@ evalTier forced adjs mct process disc item = trace ("hit standard: " <> show ite
     -- recursively call in all parents, pass in a our own tier as a thunk
     (d2, psts'') = mapAccumR prfn d1 ps
 
-    -- add caller's tier to parent or children
-    (psts', csts') = fromMaybe (psts'', csts'') $ flip fmap mct $ \case
-      Left pTier -> (Left pTier:psts'',csts'')
-      Right cTier -> (psts'', Left (Just cTier):csts'')
 
-    -- keep both left and right for children
-    csts = map (either id id) csts'
-    -- keeps only lefts, the rights are included in d2
-    psts = lefts psts'
+    csts' = catMaybes csts''
+    psts' = catMaybes psts''
+
+    -- add caller's tier to parent or children
+    (psts, csts) = fromMaybe (psts', csts') $ flip fmap mct $ \case
+      Left pTier -> (pTier:psts',csts')
+      Right cTier -> (psts', Just cTier:csts')
+
 
     -- collect anything added to our TierFn while traversing children
     ((psts2, csts2), _) = M.findWithDefault (error "this should never happen") item d2
@@ -208,18 +206,16 @@ evalTier forced adjs mct process disc item = trace ("hit standard: " <> show ite
     --trace ("evalTier rslt: " <> show item <> " " <> show (fmap isNothing rpsts, fmap isNothing rcsts))
 
     rTier = if null rcsts
-      then Left (Just 0) -- needed to break loops, even though it's the same as `Left (Just tier)`
+      then Just 0 -- needed to break loops, even though it's the same as `Left (Just tier)`
       else if null rpsts || any isNothing rpsts
         -- if no parents or any parent is Nothing, return Left Nothing indicating our tier is dependent on children
-        then Left Nothing
+        then Nothing
         else if all isNothing rcsts
           -- if there are children and they are all Nothing, return Right Nothing indicating we are in a loop
-          then Right Nothing
-          else Left (Just tier)
+          then Nothing
+          else Just tier
 
-    -- the tier we report when recursively calling on our children
-    forChildrenTier = either id id rTier
-    r = (d2, rTier)
+    r = (d2, Just rTier)
 
 
 {- can't remember why I did this, you can delete it but here it is just in case
