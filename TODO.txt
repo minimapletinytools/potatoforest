@@ -1,15 +1,40 @@
-a -┐
-↓  |
-b  |
-↓  |
-c  |
-↓  ↓
-d1 d2
-↓  |
-e ←┘
+new tier calculator
 
-start from a
-start from e
+fixed pts in our calculation:
+-no children at all
+-first node in a loop
+-forced tier (not required, but still a fixed point)
+
+base case in our recursion:
+processing - return Nothing + add self to tier map
+discovered - return Just tier
+no children - return Just 0
+no parents - return Nothing
+
+inductive case:
+-- forced = M.lookup item forcedTiers
+-- add self to tierMap
+-- cTiers = for each child  (accumulate tierMap, adjs)
+  -- newTierMap = recurse in child with Just tierForChild (add self to processing nodes)
+  -- loopedParents = M.lookup item newTierMap S.\\ M.lookup item tierMap
+    -- tierForChild = flip fromMaybe forced evalTierFn ((over snd (S.\\ child)) . (over fst (S.\\ loopedParents)) $ tierFn)
+-- pTiers = for each parent
+  -- recurse in child with Just tier
+tierFn = (pTiers, cTiers)
+tier = flip fromMaybe forced evalTierFn tierFn
+
+
+TierFn{
+  parents :: Map Item (Maybe Int),
+  children :: Map Item (Maybe Int)
+}
+
+Nothing means dependency
+matching Nothings means loop
+in particular:
+Nothing in parent means the parents depends on this item
+Nothing in child means the child is eventual parent and depends on this item to close the fixed pt
+
 
 ::TODO::
 -phantom recipes (only for solver, does not show up in visualizer)
