@@ -138,18 +138,20 @@ evalTier forced processing callerInfo adjsAcc1 nmAcc0 selfItem = rFinal where
     -> Item
     -> (Maybe Int, (M.Map Item Adjs, M.Map Item NodeAcc))
   crfn (adjsAcc, nmAcc) cItem
-    -- already processing base case
-    -- insert self into parent of cItem as Nothingto indicate loop
+    -- (c1) already processing base case
     | S.member cItem selfProcessing =
+      -- insert self into parent of cItem as Nothing to indicate fixed point of loop
+      -- return Nothing to indicate loop (TODO return forced tier instead?)
       (Nothing, (adjsAccForChild, M.adjust (\acc -> acc { tierFn = over _1 (M.insert selfItem Nothing) (tierFn acc) }) cItem nmAcc))
-    -- discovered and not processing base case
+    -- (c2) discovered and not processing base case
     | Just acc <- M.lookup cItem nmAcc =
-      -- grab its tier thunk from the map
-      (Just $ tierThunk acc, (adjsAccForChild, nmAcc))
-    -- recursive case
+      -- can safely use its tier thunk from the map
+      (Just $ tierThunk nmAcc, (adjsAccForChild, nmAcc))
+    -- (c3) recursive case
     | otherwise = (cTier, (newAdjsAcc, newAcc)) where
       -- remove self from parent adjs of child
       adjsAccForChild = removeSelfFromAdjs _1 cItem adjsAcc
+
       -- remove children and eventual parents from caller's tierFn
       loopedParents = fst (mustFind item newAcc) S.\\ fst (mustFind item nmAcc)
       tierForChild = flip fromMaybe fTier $ evalTierFn (over snd (M.delete cItem) . over fst (M.\\ loopedParents) $ tierFn)
@@ -165,18 +167,24 @@ evalTier forced processing callerInfo adjsAcc1 nmAcc0 selfItem = rFinal where
     (M.Map Item Adjs, M.Map Item NodeAcc)
     -> Item
     -> (Maybe Int, (M.Map Item Adjs, M.Map Item NodeAcc))
-  prfn (adjsAcc, nmAcc) pItem = (pTier, (newAdjsAcc, newAcc)) where
-    -- TODO base cases
-      -- if processing
-      -- if already discovered
-    -- recursive case
-    -- remove self from child adjs of parent
-    adjsAccForParent = M.adjust (over _2 (L.delete selfItem)) cItem adjsAcc
-    -- remove parent from tierFn we pass to parent (TODO not totally sure if we should do this but seems correct)
-    tierForParent = flip fromMaybe fTier $ evalTierFn (over fst (M.delete pItem) tierFn)
-    selfInfoForParent = CallerInfo true tierForParent selfItem
-    -- recursively call with our modified accumulators
-    (pTier, newAdjsAcc, newAcc) = evalTier forced processing selfInfoForParent adjsAccForParent nmAcc pItem
+  prfn (adjsAcc, nmAcc) pItem
+    -- (p1) if processing
+    | S.member pItem processing =
+      -- insert self into child of pItem as tier thunk, parents always depend on child, except in the case of (c1)
+      -- return Nothing to indicate parent depends on child (TODO return forced tier instead?)
+      (Nothing, (adjsAccForChild, M.adjust (\acc -> acc { tierFn = over _1 (M.insert selfItem tierForParent) (tierFn acc) }) cItem nmAcc))
+    -- (p2) if already discovered
+    | Just _ <- M.lookup pItem nmAcc = error "this should never happen"
+    -- (p3) recursive case
+    | otherwise = (pTier, (newAdjsAcc, newAcc)) where
+      -- remove self from child adjs of parent
+      adjsAccForParent = M.adjust (over _2 (L.delete selfItem)) cItem adjsAcc
+
+      -- remove parent from tierFn we pass to parent (TODO not totally sure if we should do this but seems correct)
+      tierForParent = flip fromMaybe fTier $ evalTierFn (over fst (M.delete pItem) tierFn)
+      selfInfoForParent = CallerInfo true tierForParent selfItem
+      -- recursively call with our modified accumulators
+      (pTier, newAdjsAcc, newAcc) = evalTier forced processing selfInfoForParent adjsAccForParent nmAcc pItem
 
   -- handle parents
   (parentTiers, adjsAccFinal, nmAccFinal) = mapAccumR prfn (adjsAcc2, nmAcc2) parents
