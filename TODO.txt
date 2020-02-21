@@ -36,7 +36,12 @@ Nothing in parent means the parents depends on this item
 Nothing in child means the child is eventual parent and depends on this item to close the fixed pt
 
 
+-figure out what fixed pt is when you have parent forced tiers
+  -e.g. a <- b <- c <- d where d is forced
+  -because now c depends on b and and b depends on c (through d)
+  -I think this is fine because c does not depend no b, it passes a non-nothing value to it
 ::TODO::
+
 -phantom recipes (only for solver, does not show up in visualizer)
 -Parsing ItemExp should fail entire parser if it finds items that don't exist
 -fix tier generation to handle circular dependencies

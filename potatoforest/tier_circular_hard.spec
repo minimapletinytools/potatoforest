@@ -91,3 +91,7 @@ ITEM t5_e2
 INPUTS t5_e3
 ITEM t5_e3
 INPUTS t5_c
+
+# track 6 (probably did this already?)
+# a <- b <- c <- d
+#      ^---------┘

@@ -4,7 +4,7 @@ module Potato.Forest.Methods2 (
   , newGenerateTieredItems
 
   -- exported for testing
-  , evalTierFn
+  , evalTierFn'
   , buildAdjs
   , clearItemFromChildren
   , clearItemFromParents
@@ -86,185 +86,145 @@ buildAdjs allConns item visited = if item `M.member` visited
       then r2
       else buildAdjs newAllConns (fst $ M.findMin newAllConns) r2
 
-clearInTuple ::
-  Lens' ([Item],[Item]) [Item]
-  -> Item -- ^ item to clear
-  -> Item -- ^ item we are clearing from
-  -> M.Map Item Adjs -- ^ map of adjacencies
-  -> M.Map Item Adjs -- ^ map with item removed from parents of all of item's children
-clearInTuple l toClear clearFrom adjs = M.adjust (over l (L.delete toClear)) clearFrom adjs
+-- per node accumulating data for evalTier
+data NodeAcc = NodeAcc {
+  adjs        :: Adjs
+  , tierFn    :: TierFn -- not fully constructed until all children are done processing
+  , tierThunk :: Int -- do not force this value!!
+}
 
-clearItemFromChildren :: Item -> M.Map Item Adjs -> M.Map Item Adjs
-clearItemFromChildren parent adjs = case M.lookup parent adjs of
-  Nothing      -> adjs
-  -- go through children and remove parent
-  Just (_, cs) -> foldr (clearInTuple _1 parent) adjs cs
+data CallerInfo = CallerInfo {
+  calledFromChild :: Bool
+  , callerTier    :: Maybe Int
+  , caller        :: Item
+}
 
-clearItemFromParents :: Item -> M.Map Item Adjs -> M.Map Item Adjs
-clearItemFromParents child adjs = case M.lookup child adjs of
-  Nothing      -> adjs
-  -- go through parents and remove child
-  Just (ps, _) -> foldr (clearInTuple _2 child) adjs ps
+mustFind :: (Ord k) => k -> M.Map k v -> v
+mustFind = M.findWithDefault (error "key does not exist")
 
---thunkTierFn :: TierFn -> (TierFn, Int)
---thunkTierFn tfn = (tfn, evalTierFn tfn)
 
--- does not evaluate tier thunks within
-showDebugTierFn :: TierFn -> String
-showDebugTierFn (a,b) = show (fmap isNothing a, fmap isNothing b)
-
--- compute tiers for base cases in our induction
-baseCaseTier :: TierFn -> Maybe Int -> Maybe Int
-baseCaseTier (psts, csts) mTier = if null csts
-  then Just 0 -- needed to break loops, even though it's the same as `Left (Just tier)`
-  else if null psts
-    -- if no parents, return  Nothing indicating our tier is dependent on children
-    then Nothing
-    else mTier
-
--- compute tier in a way to avoid fixed points
--- TODO item param is just for debugging, you can delete it
-noFixedTier :: Item -> TierFn -> Int -> Maybe Int
-noFixedTier item (psts, csts) tier =
-  if trace ("eval csts: " <> show item <> " " <> show (all isNothing csts)) $ all isNothing csts
-    -- if there are children and they are all Nothing, return Nothing indicating we are in a loop
-    then Nothing
-    else if trace ("eval psts: " <> show item <> " " <> show (any isNothing psts)) $ any isNothing psts
-      -- if any parent (excluding looped parents) is Nothing, return Nothing indicating our tier is dependent on child
-      then Nothing
-      else trace ("eval tier: " <> show item) $ Just tier
-
--- | evaluate the tier of an item
--- returns (tier, new map with tier inserted)
--- fixed version of above
 evalTier ::
   M.Map Item Int -- ^ forced tiers
-  -> M.Map Item Adjs -- ^ map of adjancencies made in the previous step
-  -> Maybe (Either (Maybe Int) Int) -- ^ left is parent of this item's tier, right is child of this item's tier
-  -> S.Set Item -- ^ set of visited nodes that are still being processed
-  -- TODO do not need full TierFn, just list of parent tiers
-  -> M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
-  -> Item -- ^ current item we're processing
-  -> (M.Map Item (TierFn, Int), Maybe (Maybe Int)) -- ^ (new accumulating map, our own tier, Just Nothing means depends on child or loop, Nothing means already visited in parent set)
-evalTier forced adjs mct process disc item = trace ("hit standard: " <> show item) $ r where
-    -- remove self as parent from children first because this node may be its own parent (which causes an infinite loop)
-    adjsC = clearItemFromChildren item adjs
-    -- (it should always exist in the map assuming buildAdjs works correctly)
-    (ps, cs) = M.findWithDefault ([],[]) item adjsC
-    -- put our to-be-constructed TierFn and a thunk to our own tier in disc
-    d0 = trace ("eval tier " <> show item <> " " <> show (ps, cs)) $ M.insert item (([],[]), tier) disc
-    --d0 = trace ("eval tier " <> show item <> " " <> show (ps, cs)) $ M.insert item (([],[]), tier) disc
+  -> S.Set Item -- ^ processing nodes
+  -> Maybe CallerInfo -- ^ caller info, Nothing if first call :(
+  -> M.Map Item Adjs -- ^ accumulating Adjs (adjs depopulated as we go)
+  -> M.Map Item NodeAcc -- ^ accumulating node info (populated as we go)
+  -> Item -- ^ item we are evaluating
+  -> (Maybe Int, M.Map Item Adjs, M.Map Item NodeAcc) -- ^ return value and accumulator
+evalTier forced processing callerInfo adjsAcc1 nmAcc0 selfItem = rFinal where
 
-    crfn ::
-      M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
-      -> Item -- ^ current item we're processing
-      -> (M.Map Item (TierFn, Int), Maybe (Maybe Int))
-    crfn acc cItem = crfnr where
-      cProcess = (S.insert item process)
-      (newAcc, ct) = if cItem `S.member` cProcess
-        -- if child is processing
-        -- add Nothing to the parent of cItem indicating we are in a loop
-        then trace ("hit processing: " <> show cItem) $
-          (M.adjust (over (_1 . _1) (Nothing:)) cItem acc, Just Nothing)
-        else if cItem `M.member` acc
-          -- if child is discovered, (this means we're done processing children of this node so we aren't in a circular loop case)
-          -- add our tier thunk into the parent of cItem
-          then trace ("hit disc: " <> show cItem) $
-            (M.adjust (over (_1 . _1) (passToChildren:)) cItem acc, Just (Just tier))
-          else evalTier forced adjsC (Just $ Left passToChildren) cProcess acc cItem
-      -- TODO check if M.lookup item newAcc is different from
-      crfnr = (newAcc, ct)
+  fTier = M.lookup item forced
+  (parents, children) = M.findWithDefault ([],[]) item adjsAcc1
 
-    -- recursively call in all children, add self to processing nodes before calling
-    (d1, csts'') = mapAccumR crfn d0 cs
+  -- add ourselves to the node accumulator map
+  nmAcc1 = M.adjust (\acc -> acc {
+      tierFn = emptyTierFn
+      , tierThunk = tierFinal
+    })
 
-    -- remove self from parents before recursing
-    adjsP = (clearItemFromParents item adjsC)
+  -- add ourselves to processing (for children only)
+  selfProcessing = (S.insert selfItem processing)
 
-    prfn ::
-      M.Map Item (TierFn, Int) -- ^ accumulating map of node tiers and their (possibly still being constructed TierFn)
-      -> Item -- ^ current item we're processing
-      -> (M.Map Item (TierFn, Int), Maybe (Maybe Int))
-    prfn acc pItem = prfnr where
-      (newAcc, pt) = if pItem `S.member` process
-        -- if parent is processing
-        -- fixed point in looping cases are handled in children which we recurse over first
-        -- so we can safely use tier thunk in the discovered map which must exist
-        then trace ("hit processing: " <> show pItem) $
-          (acc, Just . Just . snd $ M.findWithDefault (error "this should never happen") pItem acc)
-        else if pItem `M.member` acc
-          -- if parent is discovered, (this means we're done processing children of this node so we aren't in a circular loop case)
-          -- just return the tier
-          -- note this closes loops that were found when we go down children
-          then trace ("hit disc: " <> show pItem) $
-            (acc, Nothing)
-          else evalTier forced adjsP (Just $ Right tier) process acc pItem
-      -- TODO check if M.lookup item newAcc is different from
-      prfnr = (newAcc, pt)
+  removeSelfFromAdjs ::
+    Lens' ([Item],[Item]) [Item] -- ^ lens to parent on children
+    -> Item -- ^ item we want to remove self from
+    -> M.Map Item Adjs
+    -> M.Map Item Adjs
+  removeSelfFromAdjs l item adjsAcc = M.adjust (over l (L.delete selfItem)) item adjsAcc
 
-    -- recursively call in all parents, pass in a our own tier as a thunk
-    (d2, psts'') = mapAccumR prfn d1 ps
+  -- mapAccum function we'll use on our children
+  crfn ::
+    (M.Map Item Adjs, M.Map Item NodeAcc)
+    -> Item
+    -> (Maybe Int, (M.Map Item Adjs, M.Map Item NodeAcc))
+  crfn (adjsAcc, nmAcc) cItem
+    -- already processing base case
+    -- insert self into parent of cItem as Nothingto indicate loop
+    | S.member cItem selfProcessing =
+      (Nothing, (adjsAccForChild, M.adjust (\acc -> acc { tierFn = over _1 (M.insert selfItem Nothing) (tierFn acc) }) cItem nmAcc))
+    -- discovered and not processing base case
+    | Just acc <- M.lookup cItem nmAcc =
+      -- grab its tier thunk from the map
+      (Just $ tierThunk acc, (adjsAccForChild, nmAcc))
+    -- recursive case
+    | otherwise = (cTier, (newAdjsAcc, newAcc)) where
+      -- remove self from parent adjs of child
+      adjsAccForChild = removeSelfFromAdjs _1 cItem adjsAcc
+      -- remove children and eventual parents from caller's tierFn
+      loopedParents = fst (mustFind item newAcc) S.\\ fst (mustFind item nmAcc)
+      tierForChild = flip fromMaybe fTier $ evalTierFn (over snd (M.delete cItem) . over fst (M.\\ loopedParents) $ tierFn)
+      selfInfoForChild = CallerInfo false tierForChild selfItem
+      -- recursively call with our modified accumulators
+      (cTier, newAdjsAcc, newAcc) = evalTier forced selfProcessing selfInfoForChild adjsAccForChild nmAcc cItem
 
+  -- handle children
+  (childTiers, adjsAcc2, nmAcc2) = mapAccumR crfn (adjsAcc1, nmAcc1) children
 
-    csts' = catMaybes csts''
-    psts' = catMaybes psts''
+  -- mapAccum function we'll use on our parents
+  prfn ::
+    (M.Map Item Adjs, M.Map Item NodeAcc)
+    -> Item
+    -> (Maybe Int, (M.Map Item Adjs, M.Map Item NodeAcc))
+  prfn (adjsAcc, nmAcc) pItem = (pTier, (newAdjsAcc, newAcc)) where
+    -- TODO base cases
+      -- if processing
+      -- if already discovered
+    -- recursive case
+    -- remove self from child adjs of parent
+    adjsAccForParent = M.adjust (over _2 (L.delete selfItem)) cItem adjsAcc
+    -- remove parent from tierFn we pass to parent (TODO not totally sure if we should do this but seems correct)
+    tierForParent = flip fromMaybe fTier $ evalTierFn (over fst (M.delete pItem) tierFn)
+    selfInfoForParent = CallerInfo true tierForParent selfItem
+    -- recursively call with our modified accumulators
+    (pTier, newAdjsAcc, newAcc) = evalTier forced processing selfInfoForParent adjsAccForParent nmAcc pItem
 
-    -- add caller's tier to parent or children
-    (psts, csts) = fromMaybe (psts', csts') $ flip fmap mct $ \case
-      Left pTier -> (pTier:psts',csts')
-      Right cTier -> (psts', Just cTier:csts')
-
-
-    -- collect anything added to our TierFn while traversing children
-    ((psts2, _), _) = M.findWithDefault (error "this should never happen") item d2
-    tierFn@(rpsts,_) = (psts2<>psts, csts)
-
-    -- compute our actual tier, and then the tier we will pass to our parents/children
-    tier = evalTierFn tierFn
-
-    -- this causes freeze if done too soon because whnf of rpsts and rcsts depend on parent tier or something like that
-    --trace ("evalTier rslt: " <> show item <> " " <> show (fmap isNothing rpsts, fmap isNothing rcsts))
+  -- handle parents
+  (parentTiers, adjsAccFinal, nmAccFinal) = mapAccumR prfn (adjsAcc2, nmAcc2) parents
 
 
+  tierFnFinal = (parentTiers, childTiers)
+  -- TODO handle forced tiers
+  tierFinal = evalTierFn tierFnFinal
+  rTier = evalTierFnFixed tierFnFinal
+
+  -- this step is not necessary, but it's useful for debugging if we have the fully constructed tierFn
+  nmAccDebugFinal = M.adjust (\acc -> acc {tierFn = tierFnFinal }) nmAccFinal
+
+  rFinal = (rTier, adjsAccFinal, nmAccFinal)
 
 
+data TierFn = TierFn{
+  parents    :: M.Map Item (Maybe Int)
+  , children :: M.Map Item (Maybe Int)
+}
 
-    -- TODO
-    -- the tier we pass to the children should calculated WITHOUT parents that are loops coming from THAT child
-      -- unless it has a value, in which case do pass it?
-        -- maybe not actually
-    -- it should also be calculated without the child that we are passing it too
+emptyTierFn :: TierFn
+emptyTierFn = TierFn M.empty M.empty
 
-    passToChildren = baseCaseTier (rpsts, csts) $ noFixedTier item (psts, csts) tier
+evalTierFn :: TierFn -> Int
+evalTierFn (TierFn ps cs) = evalTierFn' (M.elems ps, M.elems cs)
 
-
-
-    -- the tier we pass to our children should not include the child itself
-
-    -- the tier we return should be calculated with everything
-    rTier = baseCaseTier (rpsts, csts) $ noFixedTier item (rpsts, csts) tier
-
-    -- update map to have our now fully constructed tierFn (this is for debug purposes only)
-    d3 = M.adjust (set _1 tierFn) item d2
-
-    r = (d3, Just rTier)
-
-
-{- can't remember why I did this, you can delete it but here it is just in case
-else if all isRight csts'
-  -- if there are children and they are all Right, return Right indicating we are in a loop
-  -- our tier is the maximal of all children tiers (some may have been forced)
-  then (d2, Right (L.foldr1 maxOrd1 csts))
--}
-
+-- | this version carefully opens loops so that there is a fixed point in our knot :)
+evalTierFnFixed :: TierFn -> Maybe Int
+evalTierFnFixed tfn@(TierFn ps cs) = if null cs
+  then Just 0
+  else if null ps
+    -- if no parents, return  Nothing indicating our tier is dependent on children
+    then Nothing
+    else if all isNothing cs
+      -- if there are children and they are all Nothing, return Nothing indicating we are in a loop
+      then Nothing
+      else if any isNothing ps
+        then Nothing
+        else Just $ evalTierFn tfn
 
 -- | data type containing information to compute a node's tier
 -- (parent tiers, child tiers)
-type TierFn = ([Maybe Int], [Maybe Int])
+type TierFn' = ([Maybe Int], [Maybe Int])
 
 -- | convert a fully constructed TierFn to a node's actual tier
-evalTierFn :: TierFn -> Int
-evalTierFn (ps, cs) = r where
+evalTierFn' :: TierFn' -> Int
+evalTierFn' (ps, cs) = r where
   -- compute the min of two parent tiers
   minps :: Maybe Int -> Maybe Int -> Maybe Int
   --minps Nothing p2 = p2

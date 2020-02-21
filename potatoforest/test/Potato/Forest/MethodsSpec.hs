@@ -92,8 +92,8 @@ test_buildAdjs = describe "buildAdjs" $ do
   it "behaves as expected in basic test case" $ do
     buildAdjs icm a M.empty `shouldBe` expected
 
-test_evalTierFn :: Spec
-test_evalTierFn = describe "evalTierFn" $ do
+test_evalTierFn' :: Spec
+test_evalTierFn' = describe "evalTierFn'" $ do
   let
     empty = []
     allNothing = [Nothing, Nothing, Nothing]
@@ -101,23 +101,23 @@ test_evalTierFn = describe "evalTierFn" $ do
     onlyFive = [Just 5]
     someNothing = onlyOne <> allNothing
   it "always tier 0 when children are empty" $ do
-    evalTierFn (empty, empty) `shouldBe` 0
-    evalTierFn (allNothing, empty) `shouldBe` 0
-    evalTierFn (onlyFive, empty) `shouldBe` 0
+    evalTierFn' (empty, empty) `shouldBe` 0
+    evalTierFn' (allNothing, empty) `shouldBe` 0
+    evalTierFn' (onlyFive, empty) `shouldBe` 0
   it "having no parents is same as having some parent that is nothing" $ do
-    evalTierFn ([], allNothing) `shouldBe` evalTierFn (allNothing, allNothing)
-    evalTierFn ([], allNothing) `shouldBe` evalTierFn (someNothing, allNothing)
+    evalTierFn' ([], allNothing) `shouldBe` evalTierFn' (allNothing, allNothing)
+    evalTierFn' ([], allNothing) `shouldBe` evalTierFn' (someNothing, allNothing)
   it "if all children are nothing and some parent is nothing, we are in a base loop" $ do
-    evalTierFn (allNothing, allNothing) `shouldBe` 0
-    evalTierFn (someNothing, allNothing) `shouldBe` 0
+    evalTierFn' (allNothing, allNothing) `shouldBe` 0
+    evalTierFn' (someNothing, allNothing) `shouldBe` 0
   it "child tier + 1 when parents are all nothing" $ do
-    evalTierFn (allNothing, onlyOne) `shouldBe` 2
-    evalTierFn (allNothing, onlyFive) `shouldBe` 6
+    evalTierFn' (allNothing, onlyOne) `shouldBe` 2
+    evalTierFn' (allNothing, onlyFive) `shouldBe` 6
   it "is bounded by parent tier appropriately" $ do
-    evalTierFn (onlyOne, onlyOne) `shouldBe` 1
-    evalTierFn (onlyFive, onlyOne) `shouldBe` 2
+    evalTierFn' (onlyOne, onlyOne) `shouldBe` 1
+    evalTierFn' (onlyFive, onlyOne) `shouldBe` 2
   it "parent tier can not push tier lower than max child tier" $ do
-    evalTierFn (onlyOne, onlyFive) `shouldBe` 5
+    evalTierFn' (onlyOne, onlyFive) `shouldBe` 5
 
 
 spec :: Spec
@@ -127,4 +127,4 @@ spec = do
   describe "Methods2" $ do
     test_buildAdjs
     test_clearInTuple
-    test_evalTierFn
+    test_evalTierFn'
