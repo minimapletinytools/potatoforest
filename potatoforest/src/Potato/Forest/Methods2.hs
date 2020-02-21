@@ -10,6 +10,10 @@ module Potato.Forest.Methods2 (
   , clearItemFromParents
 ) where
 
+import           Data.Graph.Inductive.Graph
+import           Data.Graph.Inductive.PatriciaTree
+
+
 import           Data.Functor.Classes              (Ord1, compare1)
 import           Relude
 import           Relude.Extra.Lens
@@ -18,6 +22,7 @@ import           Potato.Forest.Internal.Containers
 import           Potato.Forest.Methods
 import           Potato.Forest.Types
 
+import           Control.Exception                 (assert)
 import qualified Data.List                         as L
 import qualified Data.Map                          as M
 import           Data.Maybe
@@ -26,6 +31,7 @@ import qualified Data.Set                          as S
 -- for debugging, remove me
 import qualified Data.Text.Lazy                    as LT
 import           Text.Pretty.Simple
+
 trace_pShow :: (Show a) => a -> b -> b
 trace_pShow x = trace (LT.unpack (pShow x))
 
@@ -33,6 +39,13 @@ trace_pShow x = trace (LT.unpack (pShow x))
 -- A -> B means "A depends on B"
 -- and "B is the child of A"
 -- and "A is the parent of B"
+
+
+mustFind :: (Ord k) => k -> M.Map k v -> v
+mustFind = M.findWithDefault (error "key does not exist")
+
+mustAdjust :: Ord k => (a -> a) -> k -> Map k a -> Map k a
+mustAdjust f k m = assert (M.member k m) $ adjust f k m
 
 maxOrd1 :: (Ord1 f, Ord a)  => f a -> f a -> f a
 maxOrd1 a b = case compare1 a b of
@@ -86,6 +99,77 @@ buildAdjs allConns item visited = if item `M.member` visited
       then r2
       else buildAdjs newAllConns (fst $ M.findMin newAllConns) r2
 
+-- inductive graph stuff
+type NLabel = Item
+type ELabel = ()
+
+
+-- per node accumulating data
+data ItemAcc = ItemAcc {
+  tierFn      :: TierFn -- not fully constructed until all children are done processing
+  , tierThunk :: Int -- do not force this value!!
+}
+
+
+toNode :: Item -> Node NLabel
+toNode item = (undefined, item)
+
+makeGraph ::
+  (Graph gr)
+  => ItemConnectionsMap -- ^ all connections and all items
+  -> gr NodeLabel EdgeLabel
+makeGraph icm = uncurry mkGraph r where
+  foldfn :: Item -> ItemConnections -> ([LNode NLabel], [LEdge ELabel]) -> ([LNode NLabel], [LEdge ELabel])
+  foldfn item conns acc = newAcc where
+    newAcc = over _1 (toNode item:) acc . over _2 (edges<>) $ acc
+    edges = map (\dep -> (toNode item, toNode dep, ())) M.keys
+  r = foldrWithKey foldfn ([],[]) icm
+
+childFirstEvalTier ::
+  (Graph gr)
+  -- static parameters throughout entire induction
+  => M.Map Item Int -- ^ forced tiers
+  -- accumulating parameters
+  -> S.Set Item -- ^ processing nodes
+  -> M.Map Item ItemAcc -- ^ accumulating node info (populated as we go)
+  -- list of Items remaining to process
+  -> [(Item, Maybe CallerInfo)]
+  -- what's left of the graph
+  -> gr NodeLabel EdgeLabel
+  -- return
+  -> (S.Set Item, M.Map Item ItemAcc, [(Item, Maybe CallerInfo)], gr NodeLabel EdgeLabel)
+childFirstEvalTier forced processing itemAccs0 ((item, mci):rest) graph = case match (toNode item) graph of
+  -- we've been here before
+  (Nothing, newGraph) -> if S.member item processing
+    -- if the child is processing, remove it because we are done with all its children :)
+    then childFirstEvalTier forced (S.delete item processing) itemAccs rest newGraph
+    else error "this should not happen"
+  -- we haven't been here before
+  (Just (parents, itemNode, selfItem, children), newGraph) -> r where
+
+    -- lookup forced tier
+    fTier = M.lookup item forced
+
+    -- add our own tierThunk to the item accumulator
+    itemAccs1 = case mci of
+      -- if we are not a node yet add ourselves to the node accumulator map
+      Nothing -> M.insert (ItemAcc emptyTierFn tierFinal) itemACcs0
+      -- if we are called from another node, expect ourselves to be in the map already
+      Just _ -> M.mustAdjust (\acc -> acc {
+        -- TODO this wont work in inductive graph version because we won't have a thunk ;__;
+        tierThunk = tierFinal
+      })
+
+    -- add self to processing
+    selfProcessing = (S.insert selfItem processing)
+
+
+
+
+
+
+
+
 -- per node accumulating data for evalTier
 data NodeAcc = NodeAcc {
   adjs        :: Adjs
@@ -98,10 +182,6 @@ data CallerInfo = CallerInfo {
   , callerTier    :: Maybe Int
   , caller        :: Item
 }
-
-mustFind :: (Ord k) => k -> M.Map k v -> v
-mustFind = M.findWithDefault (error "key does not exist")
-
 
 evalTier ::
   M.Map Item Int -- ^ forced tiers
@@ -120,7 +200,7 @@ evalTier forced processing callerInfo adjsAcc1 nmAcc0 selfItem = rFinal where
   nmAcc1 = M.adjust (\acc -> acc {
       tierFn = emptyTierFn
       , tierThunk = tierFinal
-    })
+    }) selfItem nmAcc0
 
   -- add ourselves to processing (for children only)
   selfProcessing = (S.insert selfItem processing)
@@ -145,7 +225,7 @@ evalTier forced processing callerInfo adjsAcc1 nmAcc0 selfItem = rFinal where
       (Nothing, (adjsAccForChild, M.adjust (\acc -> acc { tierFn = over _1 (M.insert selfItem Nothing) (tierFn acc) }) cItem nmAcc))
     -- (c2) discovered and not processing base case
     | Just acc <- M.lookup cItem nmAcc =
-      -- can safely use its tier thunk from the map
+      -- parent can safely depend on child if there is no loops, use tier thunk from the map
       (Just $ tierThunk nmAcc, (adjsAccForChild, nmAcc))
     -- (c3) recursive case
     | otherwise = (cTier, (newAdjsAcc, newAcc)) where
