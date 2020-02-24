@@ -104,14 +104,12 @@ type NLabel = Item
 type ELabel = ()
 
 
--- per node accumulating data
-data ItemAcc = ItemAcc {
-  tierFn      :: TierFn -- not fully constructed until all children are done processing
-  , tierThunk :: Int -- do not force this value!!
-}
+-- | (parents, children)
+-- Nothing means parent/child is dependent
+type AdjFixed = ([Maybe Item], [Maybe Item])
 
 
-toNode :: Item -> Node NLabel
+toNode :: Item -> LNode NLabel
 toNode item = (undefined, item)
 
 makeGraph ::
@@ -125,43 +123,48 @@ makeGraph icm = uncurry mkGraph r where
     edges = map (\dep -> (toNode item, toNode dep, ())) M.keys
   r = foldrWithKey foldfn ([],[]) icm
 
+
+
 childFirstEvalTier ::
   (Graph gr)
-  -- static parameters throughout entire induction
-  => M.Map Item Int -- ^ forced tiers
   -- accumulating parameters
-  -> S.Set Item -- ^ processing nodes
-  -> M.Map Item ItemAcc -- ^ accumulating node info (populated as we go)
+  => S.Set Item -- ^ processing nodes
+  -> M.Map Item AdjFixed -- ^ accumulating node info
   -- list of Items remaining to process
-  -> [(Item, Maybe CallerInfo)]
+  -> [Node]
   -- what's left of the graph
   -> gr NodeLabel EdgeLabel
   -- return
-  -> (S.Set Item, M.Map Item ItemAcc, [(Item, Maybe CallerInfo)], gr NodeLabel EdgeLabel)
-childFirstEvalTier forced processing itemAccs0 ((item, mci):rest) graph = case match (toNode item) graph of
+  -> (S.Set Item, M.Map Item ItemAcc, [Node], gr NodeLabel EdgeLabel)
+childFirstEvalTier forced processing itemAccs0 (node:rest) graph = case match node graph of
   -- we've been here before
   (Nothing, newGraph) -> if S.member item processing
     -- if the child is processing, remove it because we are done with all its children :)
-    then childFirstEvalTier forced (S.delete item processing) itemAccs rest newGraph
+    then childFirstEvalTier (S.delete item processing) itemAccs0 rest newGraph
     else error "this should not happen"
   -- we haven't been here before
   (Just (parents, itemNode, selfItem, children), newGraph) -> r where
 
-    -- lookup forced tier
-    fTier = M.lookup item forced
 
-    -- add our own tierThunk to the item accumulator
-    itemAccs1 = case mci of
-      -- if we are not a node yet add ourselves to the node accumulator map
-      Nothing -> M.insert (ItemAcc emptyTierFn tierFinal) itemACcs0
-      -- if we are called from another node, expect ourselves to be in the map already
-      Just _ -> M.mustAdjust (\acc -> acc {
-        -- TODO this wont work in inductive graph version because we won't have a thunk ;__;
-        tierThunk = tierFinal
-      })
+    -- add ourselves to accumulator
+    alterFn = \case
+      Nothing -> Just ([],[])
+      Just x -> Just x
+    itemAccs1 = M.alter alterFn selfItem itemAccs0
+
+    -- TODO add each parent and child to accumulator if needed
+    itemAccs2 = itemAccs1
+
+    -- TODO add ourselves to accumulator of each parent and child
+    itemAccs3 = itemAccs2
 
     -- add self to processing
     selfProcessing = (S.insert selfItem processing)
+
+    -- breadth first
+    r = childFirstEvalTier selfProcessing itemAccs3 (map snd children <> rest <> map snd parents) newGraph
+
+
 
 
 
